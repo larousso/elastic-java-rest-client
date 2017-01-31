@@ -1,0 +1,63 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'maven-publish'
+
+group 'com.adelegue'
+version =  '1.0.0-SNAPSHOT'
+
+jar {
+    baseName = 'elastic-java-rest-client'
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    maven {
+        url 'https://raw.githubusercontent.com/mathieuancelin/json-lib-javaslang/master/repository/releases/'
+    }
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+
+dependencies {
+    compile("io.javaslang:javaslang:2.0.5")
+    compile("com.typesafe.akka:akka-stream_2.11:2.4.16")
+    compile("org.reactivecouchbase:json-lib-javaslang:1.0.0")
+    compile("org.elasticsearch.client:rest:5.1.2")
+    testCompile("com.typesafe.akka:akka-testkit_2.11:2.4.16")
+    testCompile("org.elasticsearch:elasticsearch:2.4.3")
+//    testCompile("org.apache.lucene:lucene-test-framework:6.3.0")
+//    testCompile("org.elasticsearch.test:framework:5.1.2")
+    testCompile("org.slf4j:slf4j-api:1.7.22")
+    testCompile("org.assertj:assertj-core:3.6.2")
+    testCompile("junit:junit:4.12")
+    testCompile("org.assertj:assertj-core:3.5.2")
+    testCompile("org.apache.logging.log4j:log4j-api:2.7")
+    testCompile("org.apache.logging.log4j:log4j-core:2.7")
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            url version.contains("SNAPSHOT") ? "$buildDir/../repository/snapshots" : "$buildDir/../repository/releases"
+        }
+    }
+}
