@@ -12,7 +12,6 @@ import elastic.response.GetResponse;
 import elastic.response.IndexResponse;
 import javaslang.control.Option;
 import org.apache.http.HttpHost;
-import org.assertj.core.api.Assertions;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -20,11 +19,13 @@ import org.junit.Test;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Reader;
+import scala.concurrent.duration.FiniteDuration;
 
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.*;
 /**
  * Created by adelegue on 28/10/2016.
  */
@@ -64,9 +65,9 @@ public class ElasticTest {
     public void index_creation_should_work() throws ExecutionException, InterruptedException {
 
         Boolean exists = elasticClient.indexExists(INDEX).toCompletableFuture().get();
-        Assertions.assertThat(exists).isFalse();
+        assertThat(exists).isFalse();
         createIndexWithMapping();
-        Assertions.assertThat(elasticClient.indexExists(INDEX).toCompletableFuture().get()).isTrue();
+        assertThat(elasticClient.indexExists(INDEX).toCompletableFuture().get()).isTrue();
         JsValue index = elasticClient.getIndex(INDEX).toCompletableFuture().get();
         String type = index.asObject()
                 .field("test").asObject()
@@ -75,7 +76,7 @@ public class ElasticTest {
                 .field("properties").asObject()
                 .field("name").asObject()
                 .field("type").asString();
-        Assertions.assertThat(type).isEqualTo("string");
+        assertThat(type).isEqualTo("string");
     }
 
 
@@ -83,10 +84,10 @@ public class ElasticTest {
     @Test
     public void mapping_creation_should_work() throws ExecutionException, InterruptedException {
         Boolean exists = elasticClient.indexExists(INDEX).toCompletableFuture().get();
-        Assertions.assertThat(exists).isFalse();
+        assertThat(exists).isFalse();
         elasticClient.createIndex(INDEX, Json.obj()).toCompletableFuture().get();
 
-        Assertions.assertThat(elasticClient.indexExists(INDEX).toCompletableFuture().get()).isTrue();
+        assertThat(elasticClient.indexExists(INDEX).toCompletableFuture().get()).isTrue();
         elasticClient.createMapping(INDEX, "test", Json.obj()
                 .with("properties", Json.obj()
                         .with("name", Json.obj()
@@ -103,22 +104,22 @@ public class ElasticTest {
                 .field("properties").asObject()
                 .field("name").asObject()
                 .field("type").asString();
-        Assertions.assertThat(type).isEqualTo("string");
+        assertThat(type).isEqualTo("string");
     }
 
     @Test
     public void index_data_should_work() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
-        IndexResponse indexResponse = this.elasticClient.index(INDEX, TYPE, Json.obj().with("name", "Jean Claude Dus"), Option.some("1")).toCompletableFuture().get();
+        IndexResponse indexResponse = elasticClient.index(INDEX, TYPE, Json.obj().with("name", "Jean Claude Dus"), Option.some("1")).toCompletableFuture().get();
 
-        Assertions.assertThat(indexResponse.created).isTrue();
-        Assertions.assertThat(indexResponse._id).isEqualTo("1");
+        assertThat(indexResponse.created).isTrue();
+        assertThat(indexResponse._id).isEqualTo("1");
 
-        GetResponse elt = this.elasticClient.get(INDEX, TYPE, "1").toCompletableFuture().get();
-        Assertions.assertThat(elt.found).isTrue();
+        GetResponse elt = elasticClient.get(INDEX, TYPE, "1").toCompletableFuture().get();
+        assertThat(elt.found).isTrue();
         Option<Person> mayBePerson = elt.as(Person.read);
         ElasticTest.Person person = mayBePerson.get();
-        Assertions.assertThat(person.name).isEqualTo("Jean Claude Dus");
+        assertThat(person.name).isEqualTo("Jean Claude Dus");
     }
 
     @Test
@@ -127,16 +128,16 @@ public class ElasticTest {
         java.util.List<BulkResponse> response = Source
                 .range(1, 500)
                 .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
-                .via(this.elasticClient.bulk(5, 2))
+                .via(elasticClient.bulk(5, 2))
                 .runWith(Sink.seq(), ActorMaterializer.create(system))
                 .toCompletableFuture()
                 .get();
 
-        Assertions.assertThat(response).hasSize(100);
-        this.elasticClient.refresh(INDEX).toCompletableFuture().get();
+        assertThat(response).hasSize(100);
+        elasticClient.refresh(INDEX).toCompletableFuture().get();
 
-        Long count = this.elasticClient.count(INDEX).toCompletableFuture().get();
-        Assertions.assertThat(count).isEqualTo(500);
+        Long count = elasticClient.count(INDEX).toCompletableFuture().get();
+        assertThat(count).isEqualTo(500);
     }
 
     @Test
@@ -144,20 +145,51 @@ public class ElasticTest {
         createIndexWithMapping();
         java.util.List<BulkResponse> responses = Source.range(1, 10).concat(Source.range(1, 10))
                 .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
-                .via(this.elasticClient.bulk(20, 1, TimeUnit.SECONDS, 2))
+                .via(elasticClient.bulk(20, FiniteDuration.create(1, TimeUnit.SECONDS), 2))
                 .runWith(Sink.seq(), ActorMaterializer.create(system))
                 .toCompletableFuture()
                 .get();
 
-        Assertions.assertThat(responses).hasSize(1);
+        assertThat(responses).hasSize(1);
         BulkResponse response = responses.get(0);
-        Assertions.assertThat(response.errors).isTrue();
-        Assertions.assertThat(response.getErrors()).hasSize(10);
+        assertThat(response.errors).isTrue();
+        assertThat(response.getErrors()).hasSize(10);
 
-        this.elasticClient.refresh(INDEX).toCompletableFuture().get();
+        elasticClient.refresh(INDEX).toCompletableFuture().get();
 
-        Long count = this.elasticClient.count(INDEX).toCompletableFuture().get();
-        Assertions.assertThat(count).isEqualTo(10);
+        Long count = elasticClient.count(INDEX).toCompletableFuture().get();
+        assertThat(count).isEqualTo(10);
+    }
+
+    @Test
+    public void create_exists_get_delete_template() throws ExecutionException, InterruptedException {
+        Boolean tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
+        assertThat(tplExists).isFalse();
+        String template = "{" +
+                "    \"template\" : \"te*\", " +
+                "    \"settings\" : { " +
+                "        \"number_of_shards\" : 1 " +
+                "    }, " +
+                "    \"aliases\" : { " +
+                "        \"alias1\" : {}, " +
+                "        \"alias2\" : { " +
+                "            \"filter\" : { " +
+                "                \"term\" : {\"user\" : \"kimchy\" } " +
+                "            }, " +
+                "            \"routing\" : \"kimchy\" " +
+                "        }, " +
+                "        \"{index}-alias\" : {}  " +
+                "    } " +
+                "} ";
+        JsValue expectedTemplate = Json.parse(template);
+        elasticClient.createTemplate("test", expectedTemplate).toCompletableFuture().get();
+        tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
+        assertThat(tplExists).isTrue();
+        JsValue jsTemplate = elasticClient.getTemplate("test").toCompletableFuture().get();
+        assertThat(jsTemplate.exists("test")).isTrue();
+        elasticClient.deleteTemplate("test").toCompletableFuture().get();
+        tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
+        assertThat(tplExists).isFalse();
     }
 
     private void createIndexWithMapping() throws ExecutionException, InterruptedException {

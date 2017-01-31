@@ -137,13 +137,7 @@ public class Elastic implements Closeable {
 
     public CompletionStage<Boolean> indexExists(String name) {
         String path = "/" + name;
-        return rawRequest(path, "HEAD", Option.none(), HashMap.empty()).thenApply(response -> {
-            if(response.getStatusLine().getStatusCode() == 200) {
-                return Boolean.TRUE;
-            } else {
-                return Boolean.FALSE;
-            }
-        });
+        return rawRequest(path, "HEAD", Option.none(), HashMap.empty()).thenApply(exists());
     }
 
     public CompletionStage<Long> count() {
@@ -209,6 +203,34 @@ public class Elastic implements Closeable {
                 .mapAsync(parallelisation, bulkBody -> request(path, "POST", bulkBody)
                                 .thenCompose(convert(BulkResponse.reader))
                 );
+    }
+
+
+    public CompletionStage<Boolean> templateExists(String name) {
+        return rawRequest("/_template/" + name, "HEAD", Option.none(), HashMap.empty())
+                .thenApply(exists());
+    }
+
+    private Function<Response, Boolean> exists() {
+        return response -> {
+            if(response.getStatusLine().getStatusCode() == 200) {
+                return Boolean.TRUE;
+            } else {
+                return Boolean.FALSE;
+            }
+        };
+    }
+
+    public CompletionStage<JsValue> getTemplate(String... name) {
+        return request("/_template/" + List.of(name).mkString(","), "GET");
+    }
+
+    public CompletionStage<JsValue> createTemplate(String name, JsValue template) {
+        return request("/_template/" + name, "PUT", template);
+    }
+
+    public CompletionStage<JsValue> deleteTemplate(String name) {
+        return request("/_template/" + name, "DELETE");
     }
 
     private <T> Function<JsValue, CompletionStage<T>> fromJson(Reader<T> reader) {
