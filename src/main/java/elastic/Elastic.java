@@ -187,17 +187,17 @@ public class Elastic implements Closeable {
 
 
     public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, Integer parallelisation) {
-        return bulk(batchSize, null, null, parallelisation);
+        return bulk(batchSize, null, parallelisation);
     }
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, Integer time, TimeUnit unit, Integer parallelisation) {
+    public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, FiniteDuration within, Integer parallelisation) {
         String path = "/_bulk";
 
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
-        if(time == null || unit == null) {
+        if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
         } else {
-            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, FiniteDuration.create(time, unit));
+            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
         }
         return windows
                 .map(items -> List.ofAll(items)
