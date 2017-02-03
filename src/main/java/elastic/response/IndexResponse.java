@@ -5,9 +5,6 @@ import org.reactivecouchbase.json.mapping.Format;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-/**
- * Created by adelegue on 08/10/2016.
- */
 public class IndexResponse {
 
     public static final Format<IndexResponse> format = Json.format(IndexResponse.class);

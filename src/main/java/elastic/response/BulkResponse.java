@@ -10,9 +10,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import javaslang.collection.List;
 
 
-/**
- * Created by adelegue on 20/10/2016.
- */
 public class BulkResponse {
 
     public static Format<BulkResponse> format = Json.format(BulkResponse.class);

@@ -49,9 +49,6 @@ import javaslang.control.Option;
 import javaslang.control.Try;
 import scala.concurrent.duration.FiniteDuration;
 
-/**
- * Created by adelegue on 31/01/2017.
- */
 public class Elastic implements Closeable {
 
     RestClient restClient;

@@ -28,9 +28,8 @@ import elastic.response.IndexResponse;
 import javaslang.collection.List;
 import javaslang.control.Option;
 import scala.concurrent.duration.FiniteDuration;
-/**
- * Created by adelegue on 28/10/2016.
- */
+
+
 public class ElasticTest {
 
     private static final String INDEX = "test";
