@@ -1,15 +1,18 @@
 package elastic.response;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import javaslang.collection.List;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
+import org.reactivecouchbase.json.mapping.Format;
 import org.reactivecouchbase.json.mapping.Reader;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+import javaslang.collection.List;
 
 public class SearchResponse {
 
-    public static final Reader<SearchResponse> read = Json.reads(SearchResponse.class);
+    public static final Format<SearchResponse> format = Json.format(SearchResponse.class);
 
     public Integer took;
 
@@ -50,5 +53,14 @@ public class SearchResponse {
                     .map(json -> Json.fromJson(json, hitRead).get());
         }
 
+    }
+
+    public String stringify() {
+        return Json.stringify(Json.toJson(this, format));
+    }
+
+    @Override
+    public String toString() {
+        return stringify();
     }
 }

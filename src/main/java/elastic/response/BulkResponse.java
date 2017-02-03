@@ -1,11 +1,13 @@
 package elastic.response;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import javaslang.collection.List;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
-import org.reactivecouchbase.json.mapping.Reader;
+import org.reactivecouchbase.json.mapping.Format;
+
+import com.fasterxml.jackson.databind.JsonNode;
+
+import javaslang.collection.List;
 
 
 /**
@@ -13,7 +15,7 @@ import org.reactivecouchbase.json.mapping.Reader;
  */
 public class BulkResponse {
 
-    public static Reader<BulkResponse> reader = Json.reads(BulkResponse.class);
+    public static Format<BulkResponse> format = Json.format(BulkResponse.class);
 
     public Long took;
     public Boolean errors;
@@ -28,8 +30,8 @@ public class BulkResponse {
         this.items = items;
     }
 
-    public List<BulkItem> getErrors() {
-        return List.ofAll(items).filter(BulkItem::hasError);
+    public java.util.List<BulkItem> getErrors() {
+        return List.ofAll(items).filter(BulkItem::hasError).toJavaList();
     }
 
     public static class BulkItem {
@@ -79,5 +81,14 @@ public class BulkResponse {
                 return Json.fromJsonNode(error);
             }
         }
+    }
+
+    public String stringify() {
+        return Json.stringify(Json.toJson(this));
+    }
+
+    @Override
+    public String toString() {
+        return stringify();
     }
 }

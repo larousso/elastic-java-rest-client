@@ -2,6 +2,7 @@ package elastic;
 
 import akka.actor.ActorSystem;
 import akka.stream.ActorMaterializer;
+import akka.stream.ThrottleMode;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import akka.testkit.JavaTestKit;
@@ -10,6 +11,7 @@ import elastic.request.BulkItem;
 import elastic.response.BulkResponse;
 import elastic.response.GetResponse;
 import elastic.response.IndexResponse;
+import javaslang.collection.List;
 import javaslang.control.Option;
 import org.apache.http.HttpHost;
 import org.junit.AfterClass;
@@ -161,6 +163,57 @@ public class ElasticTest {
         assertThat(count).isEqualTo(10);
     }
 
+
+    @Test
+    public void bulk_indexing_with_retry_should_work() throws ExecutionException, InterruptedException {
+        createIndexWithMapping();
+        java.util.List<BulkResponse> response = Source
+                .range(1, 500)
+                .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
+                .via(elasticClient.bulkWithRetry(5, 2, 2, FiniteDuration.create(1, TimeUnit.SECONDS), Elastic.RetryMode.LineareLatency))
+                .runWith(Sink.seq(), ActorMaterializer.create(system))
+                .toCompletableFuture()
+                .get();
+
+        assertThat(response).hasSize(100);
+        elasticClient.refresh(INDEX).toCompletableFuture().get();
+
+        Long count = elasticClient.count(INDEX).toCompletableFuture().get();
+        assertThat(count).isEqualTo(500);
+    }
+
+    @Test
+    public void bulk_indexing_with_retry_with_errors() throws ExecutionException, InterruptedException {
+        createIndexWithMapping();
+        Long start = System.currentTimeMillis();
+        java.util.List<BulkResponse> responses = Source.range(1, 10).concat(Source.range(1, 10))
+                .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
+                .via(elasticClient.bulkWithRetry(5, 1, 2, FiniteDuration.create(1, TimeUnit.SECONDS), Elastic.RetryMode.ExponentialLatency))
+                .runWith(Sink.seq(), ActorMaterializer.create(system))
+                .toCompletableFuture()
+                .get();
+
+        Long stop = System.currentTimeMillis();
+
+        System.out.println("Responses : "+responses);
+
+        Long length = 1000L * 6;
+
+        assertThat(stop - start).isGreaterThan(length);
+
+        assertThat(responses).hasSize(4);
+        List<BulkResponse> onError = List.ofAll(responses).filter(r -> Boolean.TRUE.equals(r.errors));
+        assertThat(onError).hasSize(2);
+        onError.forEach(err ->
+            assertThat(err.getErrors()).hasSize(5)
+        );
+
+        elasticClient.refresh(INDEX).toCompletableFuture().get();
+
+        Long count = elasticClient.count(INDEX).toCompletableFuture().get();
+        assertThat(count).isEqualTo(10);
+    }
+
     @Test
     public void create_exists_get_delete_template() throws ExecutionException, InterruptedException {
         Boolean tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
@@ -191,6 +244,8 @@ public class ElasticTest {
         tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
         assertThat(tplExists).isFalse();
     }
+
+
 
     private void createIndexWithMapping() throws ExecutionException, InterruptedException {
         elasticClient.createIndex(INDEX, Json.obj()

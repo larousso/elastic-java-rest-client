@@ -1,7 +1,11 @@
 package elastic;
 
 import akka.NotUsed;
+import akka.stream.OverflowStrategy;
+import akka.stream.ThrottleMode;
 import akka.stream.javadsl.Flow;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
 import elastic.request.BulkItem;
 import elastic.response.BulkResponse;
 import elastic.response.GetResponse;
@@ -92,7 +96,7 @@ public class Elastic implements Closeable {
     public CompletionStage<GetResponse> get(String index, String type, String id) {
         String path = List.of(index, type, id).mkString("/");
         return request(path, "GET")
-                .thenCompose(convert(GetResponse.read));
+                .thenCompose(convert(GetResponse.format));
     }
 
     public CompletionStage<SearchResponse> search(JsValue query) {
@@ -110,7 +114,7 @@ public class Elastic implements Closeable {
     public CompletionStage<SearchResponse> search(Option<String> index, Option<String> type, JsValue query) {
         String path = "/" + List.of(index, type, Option.of("_search")).flatMap(identity()).mkString("/");
         return request(path, "POST", query)
-                .thenCompose(convert(SearchResponse.read));
+                .thenCompose(convert(SearchResponse.format));
     }
 
     public CompletionStage<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId) {
@@ -137,7 +141,7 @@ public class Elastic implements Closeable {
                 }),
                 Case(None(), any -> request(basePath, "POST", data, queryMap))
         )
-                .thenCompose(convert(IndexResponse.read));
+                .thenCompose(convert(IndexResponse.format));
     }
 
 
@@ -221,6 +225,37 @@ public class Elastic implements Closeable {
         return windows.mapAsync(parallelisation, this::oneBulk);
     }
 
+    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelisation, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        return bulkWithRetry(batchSize, null, parallelisation, nbRetry, latency, retryMode);
+    }
+
+    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelisation, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
+        if(within == null) {
+            windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
+        } else {
+            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
+        }
+        return windows.flatMapMerge(parallelisation, e -> oneBulkWithRetry(e, nbRetry, latency, retryMode));
+    }
+
+    public Source<BulkResponse, NotUsed> oneBulkWithRetry(java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        Flow<Integer, Integer, NotUsed> latencyFlow;
+        if(retryMode == RetryMode.ExponentialLatency) {
+            latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> i, ThrottleMode.shaping());
+        } else if(retryMode == RetryMode.LineareLatency) {
+            latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> 1, ThrottleMode.shaping());
+        } else {
+            latencyFlow = Flow.create();
+        }
+        return Source.range(1, nbRetry)
+                .via(latencyFlow)
+                .mapAsync(1, any -> oneBulk(items))
+                .filterNot(e -> Boolean.TRUE.equals(e.errors))
+                .take(1)
+                .orElse(Source.lazily(() -> Source.single(nbRetry).via(latencyFlow).mapAsync(1, any -> oneBulk(items))));
+    }
+
     public CompletionStage<BulkResponse> oneBulk(java.util.List<BulkItem> items) {
         String path = "/_bulk";
         String bulkBody = List.ofAll(items)
@@ -229,8 +264,7 @@ public class Elastic implements Closeable {
                 .map(Json::toJson)
                 .map(Json::stringify)
                 .mkString("\n") + "\n";
-        return request(path, "POST", bulkBody)
-                .thenCompose(convert(BulkResponse.reader));
+        return request(path, "POST", bulkBody).thenCompose(convert(BulkResponse.format));
     }
 
 
@@ -388,4 +422,7 @@ public class Elastic implements Closeable {
 
     }
 
+    public enum RetryMode {
+        ExponentialLatency, LineareLatency, NoLatency
+    }
 }
