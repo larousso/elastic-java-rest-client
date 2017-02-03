@@ -1,12 +1,7 @@
 package elastic;
 
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.node.Node;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 
-import javax.annotation.PreDestroy;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitOption;
@@ -16,7 +11,13 @@ import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.UUID;
 
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
+import javax.annotation.PreDestroy;
+
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.node.Node;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Created by adelegue on 20/10/2016.

@@ -1,24 +1,16 @@
 package elastic;
 
-import akka.NotUsed;
-import akka.stream.OverflowStrategy;
-import akka.stream.ThrottleMode;
-import akka.stream.javadsl.Flow;
-import akka.stream.javadsl.Sink;
-import akka.stream.javadsl.Source;
-import elastic.request.BulkItem;
-import elastic.response.BulkResponse;
-import elastic.response.GetResponse;
-import elastic.response.IndexResponse;
-import elastic.response.SearchResponse;
-import javaslang.Function1;
-import javaslang.Tuple;
-import javaslang.Tuple2;
-import javaslang.collection.HashMap;
-import javaslang.collection.List;
-import javaslang.collection.Seq;
-import javaslang.control.Option;
-import javaslang.control.Try;
+import static javaslang.API.*;
+import static javaslang.Patterns.None;
+import static javaslang.Patterns.Some;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -37,19 +29,25 @@ import org.reactivecouchbase.json.JsObject;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Reader;
+
+import akka.NotUsed;
+import akka.stream.ThrottleMode;
+import akka.stream.javadsl.Flow;
+import akka.stream.javadsl.Source;
+import elastic.request.BulkItem;
+import elastic.response.BulkResponse;
+import elastic.response.GetResponse;
+import elastic.response.IndexResponse;
+import elastic.response.SearchResponse;
+import javaslang.Function1;
+import javaslang.Tuple;
+import javaslang.Tuple2;
+import javaslang.collection.HashMap;
+import javaslang.collection.List;
+import javaslang.collection.Seq;
+import javaslang.control.Option;
+import javaslang.control.Try;
 import scala.concurrent.duration.FiniteDuration;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-
-import static javaslang.API.*;
-import static javaslang.Patterns.None;
-import static javaslang.Patterns.Some;
 
 /**
  * Created by adelegue on 31/01/2017.

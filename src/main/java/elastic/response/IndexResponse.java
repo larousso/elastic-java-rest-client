@@ -1,9 +1,9 @@
 package elastic.response;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Format;
-import org.reactivecouchbase.json.mapping.Reader;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 /**
  * Created by adelegue on 08/10/2016.
