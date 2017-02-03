@@ -17,12 +17,17 @@ import javaslang.control.Option;
 import javaslang.control.Try;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.entity.ContentType;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.nio.entity.NStringEntity;
 import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseListener;
 import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsObject;
 import org.reactivecouchbase.json.JsValue;
@@ -51,6 +56,28 @@ public class Elastic implements Closeable {
 
     public Elastic(HttpHost... hosts) {
         this.restClient = RestClient.builder(hosts).build();
+    }
+
+    public Elastic(List<HttpHost> hosts) {
+        this(hosts, Option.none(), Option.none());
+    }
+
+    public Elastic(List<HttpHost> hosts, Option<String> username, Option<String> password) {
+        RestClientBuilder restClientBuilder = RestClient.builder(hosts.toJavaArray(HttpHost.class));
+
+        Option<Tuple2<String, String>> usernameAndPassword = username.flatMap(u ->
+                password.map(p -> Tuple.of(u, p))
+        );
+
+        this.restClient = usernameAndPassword
+                .map(pair -> {
+                    final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                    credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(pair._1, pair._2));
+                    return restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
+                })
+                .getOrElse(restClientBuilder)
+                .build();
+
     }
 
     public Elastic(RestClient restClient) {
