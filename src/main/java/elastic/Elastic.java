@@ -212,24 +212,25 @@ public class Elastic implements Closeable {
     }
 
     public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, FiniteDuration within, Integer parallelisation) {
-        String path = "/_bulk";
-
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
         } else {
             windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
         }
-        return windows
-                .map(items -> List.ofAll(items)
-                        .flatMap(i -> List.of(i.operation, i.source))
-                        .filter(Objects::nonNull)
-                        .map(Json::toJson)
-                        .map(Json::stringify)
-                        .mkString("\n") + "\n")
-                .mapAsync(parallelisation, bulkBody -> request(path, "POST", bulkBody)
-                                .thenCompose(convert(BulkResponse.reader))
-                );
+        return windows.mapAsync(parallelisation, this::oneBulk);
+    }
+
+    public CompletionStage<BulkResponse> oneBulk(java.util.List<BulkItem> items) {
+        String path = "/_bulk";
+        String bulkBody = List.ofAll(items)
+                .flatMap(i -> List.of(i.operation, i.source))
+                .filter(Objects::nonNull)
+                .map(Json::toJson)
+                .map(Json::stringify)
+                .mkString("\n") + "\n";
+        return request(path, "POST", bulkBody)
+                .thenCompose(convert(BulkResponse.reader));
     }
 
 
