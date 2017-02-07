@@ -1,5 +1,7 @@
 package elastic.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
@@ -57,13 +59,14 @@ public class BulkResponse {
         }
     }
 
-
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class BulkResult {
         public String _index;
         public String _type;
         public String _id;
         public Integer _version;
         public Integer status;
+        public Boolean created;
         public JsonNode _shards;
         public JsonNode error;
 
