@@ -113,6 +113,7 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
+        //@formatter:off
         String basePath = "/" + index + "/" + type;
 
         List<Tuple2<String, String>> entries = List.of(
@@ -133,6 +134,7 @@ public class Elastic implements Closeable {
                 Case(None(), any -> request(basePath, "POST", data, queryMap))
         )
                 .thenCompose(convert(IndexResponse.format));
+        //@formatter:on
     }
 
 
@@ -255,6 +257,7 @@ public class Elastic implements Closeable {
         } else {
             latencyFlow = Flow.create();
         }
+        //@formatter:off
         return Source.range(1, nbRetry)
                 .via(latencyFlow)
                 .mapAsync(1, any -> oneBulk(items))
@@ -271,10 +274,12 @@ public class Elastic implements Closeable {
                         return Either.right(r._1.get());
                     }
                 });
+        //@formatter:on
     }
 
     public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
         String path = "/_bulk";
+        //@formatter:off
         String bulkBody = List.ofAll(items)
                 .flatMap(i -> List.of(i.operation, i.source))
                 .filter(Objects::nonNull)
@@ -291,6 +296,7 @@ public class Elastic implements Closeable {
                     }
                 })
         );
+        //@formatter:on
     }
 
 
@@ -367,6 +373,7 @@ public class Elastic implements Closeable {
     private CompletionStage<Tuple2<JsValue, Response>> request(String path, String verb, Option<String> body, HashMap<String, String> query) {
         CompletionStage<Response> response = rawRequest(path, verb, body, query);
 
+        //@formatter:off
         return response
                 .thenCompose(r -> {
                     HttpEntity entity = r.getEntity();
@@ -387,6 +394,7 @@ public class Elastic implements Closeable {
                         }
                     })
                 );
+        //@formatter:on
     }
 
     private CompletionStage<Response> rawRequest(String path, String verb, Option<String> body, HashMap<String, String> query) {
