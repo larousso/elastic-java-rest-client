@@ -9,7 +9,7 @@ apply plugin: 'idea'
 apply plugin: 'maven-publish'
 
 group 'com.adelegue'
-version =  '1.0.3-SNAPSHOT'
+version =  '1.0.4-SNAPSHOT'
 
 jar {
     baseName = 'elastic-java-rest-client'
