@@ -1,36 +1,7 @@
 package elastic;
 
-import static javaslang.API.*;
-import static javaslang.Patterns.None;
-import static javaslang.Patterns.Some;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
-
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.entity.ContentType;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.nio.entity.NStringEntity;
-import org.apache.http.util.EntityUtils;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseListener;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.reactivecouchbase.json.JsNull;
-import org.reactivecouchbase.json.JsObject;
-import org.reactivecouchbase.json.JsValue;
-import org.reactivecouchbase.json.Json;
-import org.reactivecouchbase.json.mapping.Reader;
-
 import akka.NotUsed;
+import akka.japi.function.Predicate;
 import akka.stream.ThrottleMode;
 import akka.stream.javadsl.Flow;
 import akka.stream.javadsl.Source;
@@ -47,7 +18,32 @@ import javaslang.collection.List;
 import javaslang.collection.Seq;
 import javaslang.control.Option;
 import javaslang.control.Try;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.entity.ContentType;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.nio.entity.NStringEntity;
+import org.apache.http.util.EntityUtils;
+import org.elasticsearch.client.*;
+import org.reactivecouchbase.json.JsObject;
+import org.reactivecouchbase.json.JsValue;
+import org.reactivecouchbase.json.Json;
+import org.reactivecouchbase.json.mapping.Reader;
 import scala.concurrent.duration.FiniteDuration;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
+
+import static javaslang.API.*;
+import static javaslang.Patterns.None;
+import static javaslang.Patterns.Some;
 
 public class Elastic implements Closeable {
 
@@ -217,28 +213,44 @@ public class Elastic implements Closeable {
         } else {
             windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
         }
-        return windows.mapAsync(parallelisation, this::oneBulk);
+        return windows.mapAsync(parallelisation, this::oneBulk).map(p -> p._1.get());
     }
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelisation, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
-        return bulkWithRetry(batchSize, null, parallelisation, nbRetry, latency, retryMode);
+    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        return bulkWithRetry(batchSize, null, parallelism, nbRetry, latency, retryMode);
     }
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelisation, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        return bulkWithRetry(batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
+    }
+
+
+    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
         } else {
             windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
         }
-        return windows.flatMapMerge(parallelisation, e -> oneBulkWithRetry(e, nbRetry, latency, retryMode));
+        return windows
+                .flatMapMerge(parallelism, e ->
+                        oneBulkWithRetry(e, nbRetry, latency, retryMode, isError)
+                );
     }
 
-    public Source<BulkResponse, NotUsed> oneBulkWithRetry(java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        return bulkWithRetry(batchSize, within, parallelism, nbRetry, latency, retryMode, defaultIsBulkOnError());
+    }
+
+    private Predicate<Tuple2<Try<BulkResponse>, Response>> defaultIsBulkOnError() {
+        return pair -> pair._2.getStatusLine().getStatusCode() == 503 || pair._2.getStatusLine().getStatusCode() == 429 || pair._1.isFailure();
+    }
+
+    public Source<BulkResponse, NotUsed> oneBulkWithRetry(java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
         Flow<Integer, Integer, NotUsed> latencyFlow;
-        if(retryMode == RetryMode.ExponentialLatency) {
+        if (retryMode == RetryMode.ExponentialLatency) {
             latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> i, ThrottleMode.shaping());
-        } else if(retryMode == RetryMode.LineareLatency) {
+        } else if (retryMode == RetryMode.LineareLatency) {
             latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> 1, ThrottleMode.shaping());
         } else {
             latencyFlow = Flow.create();
@@ -246,12 +258,25 @@ public class Elastic implements Closeable {
         return Source.range(1, nbRetry)
                 .via(latencyFlow)
                 .mapAsync(1, any -> oneBulk(items))
-                .filterNot(e -> Boolean.TRUE.equals(e.errors))
+                .filterNot(isError)
                 .take(1)
-                .orElse(Source.lazily(() -> Source.single(nbRetry).via(latencyFlow).mapAsync(1, any -> oneBulk(items))));
+                .orElse(Source.lazily(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items))))
+                .map(r -> {
+                    if(isError.test(r)) {
+                        if(r._1.isFailure()) {
+                            throw new BulkWithRetryException(r._1.getCause(), r._2);
+                        } else {
+                            BulkResponse b = r._1.get();
+                            String message = List.ofAll(b.getErrors()).map(e -> e.bulkResult().error()).map(Json::stringify).mkString("\n");
+                            throw new BulkWithRetryException(message, b, r._2);
+                        }
+                    } else {
+                        return r._1.get();
+                    }
+                });
     }
 
-    public CompletionStage<BulkResponse> oneBulk(java.util.List<BulkItem> items) {
+    public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
         String path = "/_bulk";
         String bulkBody = List.ofAll(items)
                 .flatMap(i -> List.of(i.operation, i.source))
@@ -259,7 +284,16 @@ public class Elastic implements Closeable {
                 .map(Json::toJson)
                 .map(Json::stringify)
                 .mkString("\n") + "\n";
-        return request(path, "POST", bulkBody).thenCompose(convert(BulkResponse.format));
+        return requestWithResponse(path, "POST", bulkBody).thenCompose(p ->
+                convert(BulkResponse.format).apply(p._1).thenApply(r -> Tuple.of(Try.success(r), p._2))
+                .exceptionally(e -> {
+                    if (e instanceof ResponseException) {
+                        return Tuple.of(Try.failure(e), ((ResponseException) e).getResponse());
+                    } else {
+                        throw new RuntimeException(e);
+                    }
+                })
+        );
     }
 
 
@@ -314,10 +348,14 @@ public class Elastic implements Closeable {
     }
 
     private CompletionStage<JsValue> request(String path, String verb) {
-        return request(path, verb, Option.none(), HashMap.empty());
+        return request(path, verb, Option.none(), HashMap.empty()).thenApply(Tuple2::_1);
     }
 
     private CompletionStage<JsValue> request(String path, String verb, String body) {
+        return request(path, verb, Option.of(body), HashMap.empty()).thenApply(Tuple2::_1);
+    }
+
+    private CompletionStage<Tuple2<JsValue, Response>> requestWithResponse(String path, String verb, String body) {
         return request(path, verb, Option.of(body), HashMap.empty());
     }
 
@@ -326,30 +364,32 @@ public class Elastic implements Closeable {
     }
 
     private CompletionStage<JsValue> request(String path, String verb, JsValue body, HashMap<String, String> query) {
-        return request(path, verb, Option.of(Json.stringify(body)), query);
+        return request(path, verb, Option.of(Json.stringify(body)), query).thenApply(Tuple2::_1);
     }
 
-    private CompletionStage<JsValue> request(String path, String verb, Option<String> body, HashMap<String, String> query) {
+    private CompletionStage<Tuple2<JsValue, Response>> request(String path, String verb, Option<String> body, HashMap<String, String> query) {
         CompletionStage<Response> response = rawRequest(path, verb, body, query);
 
         return response
-                .thenApply(Response::getEntity)
-                .thenCompose(entity -> {
+                .thenCompose(r -> {
+                    HttpEntity entity = r.getEntity();
                     if(entity == null) {
                         return success(null);
                     } else {
                         return Try.of(() -> EntityUtils.toString(entity))
+                                .map(s -> Tuple.of(s, r))
                                 .map(Elastic::success)
                                 .getOrElseGet(Elastic::failed);
                     }
                 })
-                .thenApply(json -> {
-                    if(json == null) {
-                        return new JsNull();
-                    } else {
-                        return Json.parse(json);
-                    }
-                });
+                .thenApply(pair -> pair.map1(json -> {
+                        if(json == null) {
+                            return null;
+                        } else {
+                            return Json.parse(json);
+                        }
+                    })
+                );
     }
 
     private CompletionStage<Response> rawRequest(String path, String verb, Option<String> body, HashMap<String, String> query) {
@@ -419,5 +459,41 @@ public class Elastic implements Closeable {
 
     public enum RetryMode {
         ExponentialLatency, LineareLatency, NoLatency
+    }
+
+    public static class BulkWithRetryException extends RuntimeException {
+
+        public final BulkResponse bulkResponse;
+        public final Response rawResponse;
+
+        public BulkWithRetryException(String message, Response rawResponse) {
+            super(message);
+            this.rawResponse = rawResponse;
+            this.bulkResponse = null;
+        }
+
+        public BulkWithRetryException(Throwable cause, Response rawResponse) {
+            super(cause);
+            this.rawResponse = rawResponse;
+            this.bulkResponse = null;
+        }
+
+        public BulkWithRetryException(Throwable cause, BulkResponse bulkResponse, Response rawResponse) {
+            super(cause);
+            this.bulkResponse = bulkResponse;
+            this.rawResponse = rawResponse;
+        }
+
+        public BulkWithRetryException(String message, BulkResponse bulkResponse, Response rawResponse) {
+            super(message);
+            this.bulkResponse = bulkResponse;
+            this.rawResponse = rawResponse;
+        }
+
+        public BulkWithRetryException(String message, Throwable cause, BulkResponse bulkResponse, Response rawResponse) {
+            super(message, cause);
+            this.bulkResponse = bulkResponse;
+            this.rawResponse = rawResponse;
+        }
     }
 }

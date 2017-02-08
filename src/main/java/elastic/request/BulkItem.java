@@ -1,8 +1,7 @@
 package elastic.request;
 
-import org.reactivecouchbase.json.JsValue;
-
 import com.fasterxml.jackson.annotation.JsonInclude;
+import org.reactivecouchbase.json.JsValue;
 
 public class BulkItem {
 

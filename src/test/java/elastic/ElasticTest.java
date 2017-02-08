@@ -1,21 +1,9 @@
 package elastic;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import java.io.IOException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-
-import org.apache.http.HttpHost;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.reactivecouchbase.json.JsValue;
-import org.reactivecouchbase.json.Json;
-import org.reactivecouchbase.json.mapping.Reader;
-
 import akka.actor.ActorSystem;
+import akka.japi.pf.FI;
+import akka.japi.pf.Match;
+import akka.japi.pf.PFBuilder;
 import akka.stream.ActorMaterializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
@@ -25,9 +13,23 @@ import elastic.request.BulkItem;
 import elastic.response.BulkResponse;
 import elastic.response.GetResponse;
 import elastic.response.IndexResponse;
-import javaslang.collection.List;
 import javaslang.control.Option;
+import org.apache.http.HttpHost;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.reactivecouchbase.json.JsValue;
+import org.reactivecouchbase.json.Json;
+import org.reactivecouchbase.json.mapping.Reader;
 import scala.concurrent.duration.FiniteDuration;
+
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 
 public class ElasticTest {
@@ -185,27 +187,30 @@ public class ElasticTest {
     public void bulk_indexing_with_retry_with_errors() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
         Long start = System.currentTimeMillis();
-        java.util.List<BulkResponse> responses = Source.range(1, 10).concat(Source.range(1, 10))
-                .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
-                .via(elasticClient.bulkWithRetry(5, 1, 2, FiniteDuration.create(1, TimeUnit.SECONDS), Elastic.RetryMode.ExponentialLatency))
-                .runWith(Sink.seq(), ActorMaterializer.create(system))
-                .toCompletableFuture()
-                .get();
 
+        Throwable error = catchThrowable(() ->
+                Source.range(1, 10).concat(Source.range(1, 10))
+                        .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
+                        .via(elasticClient.bulkWithRetry(
+                                5,
+                                1,
+                                2,
+                                FiniteDuration.create(1, TimeUnit.SECONDS),
+                                Elastic.RetryMode.ExponentialLatency,
+                                pair -> pair._1.isFailure() || (pair._1.isSuccess() && pair._1.get().errors)
+                        ))
+                        .runWith(Sink.seq(), ActorMaterializer.create(system))
+                        .toCompletableFuture()
+                        .get()
+        );
+
+        Long length = 1000L * 3;
         Long stop = System.currentTimeMillis();
-
-        System.out.println("Responses : "+responses);
-
-        Long length = 1000L * 6;
-
         assertThat(stop - start).isGreaterThan(length);
 
-        assertThat(responses).hasSize(4);
-        List<BulkResponse> onError = List.ofAll(responses).filter(r -> Boolean.TRUE.equals(r.errors));
-        assertThat(onError).hasSize(2);
-        onError.forEach(err ->
-            assertThat(err.getErrors()).hasSize(5)
-        );
+        assertThat(error).hasCauseInstanceOf(Elastic.BulkWithRetryException.class);
+        Elastic.BulkWithRetryException bulkWithRetryException = Elastic.BulkWithRetryException.class.cast(error.getCause());
+        assertThat(bulkWithRetryException.bulkResponse.getErrors()).hasSize(5);
 
         elasticClient.refresh(INDEX).toCompletableFuture().get();
 
@@ -266,5 +271,46 @@ public class ElasticTest {
         public static final Reader<ElasticTest.Person> read = Json.reads(ElasticTest.Person.class);
         public String name;
     }
+
+    public static class RecoverBuilder {
+        private RecoverBuilder() {
+        }
+
+        /**
+         * Return a new {@link PFBuilder} with a case statement added.
+         *
+         * @param type   a type to match the argument against
+         * @param apply  an action to apply to the argument if the type matches
+         * @return       a builder with the case statement added
+         */
+        public static <P extends Throwable, T> PFBuilder<Throwable, T> match(final Class<P> type, FI.Apply<P, T> apply) {
+            return Match.match(type, apply);
+        }
+
+        /**
+         * Return a new {@link PFBuilder} with a case statement added.
+         *
+         * @param type       a type to match the argument against
+         * @param predicate  a predicate that will be evaluated on the argument if the type matches
+         * @param apply      an action to apply to the argument if the type matches and the predicate returns true
+         * @return           a builder with the case statement added
+         */
+        public static <P extends Throwable, T> PFBuilder<Throwable, T> match(final Class<P> type,
+                                                                                                     FI.TypedPredicate<P> predicate,
+                                                                                                     FI.Apply<P, T> apply) {
+            return Match.match(type, predicate, apply);
+        }
+
+        /**
+         * Return a new {@link PFBuilder} with a case statement added.
+         *
+         * @param apply      an action to apply to the argument
+         * @return           a builder with the case statement added
+         */
+        public static <T> PFBuilder<Throwable, T> matchAny(FI.Apply<Throwable, T> apply) {
+            return Match.matchAny(apply);
+        }
+    }
+
 
 }

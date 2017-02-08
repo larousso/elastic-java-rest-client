@@ -1,14 +1,12 @@
 package elastic.response;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import javaslang.collection.List;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Format;
 import org.reactivecouchbase.json.mapping.Reader;
-
-import com.fasterxml.jackson.databind.JsonNode;
-
-import javaslang.collection.List;
 
 public class SearchResponse {
 

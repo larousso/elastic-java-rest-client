@@ -1,9 +1,8 @@
 package elastic.response;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Format;
-
-import com.fasterxml.jackson.databind.JsonNode;
 
 public class IndexResponse {
 
