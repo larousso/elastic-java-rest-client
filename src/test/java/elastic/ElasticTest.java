@@ -13,6 +13,7 @@ import elastic.request.BulkItem;
 import elastic.response.BulkResponse;
 import elastic.response.GetResponse;
 import elastic.response.IndexResponse;
+import javaslang.control.Either;
 import javaslang.control.Option;
 import org.apache.http.HttpHost;
 import org.junit.AfterClass;
@@ -25,11 +26,11 @@ import org.reactivecouchbase.json.mapping.Reader;
 import scala.concurrent.duration.FiniteDuration;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.catchThrowable;
 
 
 public class ElasticTest {
@@ -168,7 +169,7 @@ public class ElasticTest {
     @Test
     public void bulk_indexing_with_retry_should_work() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
-        java.util.List<BulkResponse> response = Source
+        java.util.List<Either<Elastic.BulkFailure, BulkResponse>> response = Source
                 .range(1, 500)
                 .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
                 .via(elasticClient.bulkWithRetry(5, 2, 2, FiniteDuration.create(1, TimeUnit.SECONDS), Elastic.RetryMode.LineareLatency))
@@ -188,29 +189,34 @@ public class ElasticTest {
         createIndexWithMapping();
         Long start = System.currentTimeMillis();
 
-        Throwable error = catchThrowable(() ->
-                Source.range(1, 10).concat(Source.range(1, 10))
-                        .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
-                        .via(elasticClient.bulkWithRetry(
-                                5,
-                                1,
-                                2,
-                                FiniteDuration.create(1, TimeUnit.SECONDS),
-                                Elastic.RetryMode.ExponentialLatency,
-                                pair -> pair._1.isFailure() || (pair._1.isSuccess() && pair._1.get().errors)
-                        ))
-                        .runWith(Sink.seq(), ActorMaterializer.create(system))
-                        .toCompletableFuture()
-                        .get()
-        );
 
-        Long length = 1000L * 3;
+        List<Either<Elastic.BulkFailure, BulkResponse>> results = Source.range(1, 10).concat(Source.range(1, 10))
+                .map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
+                .via(elasticClient.bulkWithRetry(
+                        5,
+                        1,
+                        2,
+                        FiniteDuration.create(1, TimeUnit.SECONDS),
+                        Elastic.RetryMode.ExponentialLatency,
+                        pair -> pair._1.isFailure() || (pair._1.isSuccess() && pair._1.get().errors)
+                ))
+                .runWith(Sink.seq(), ActorMaterializer.create(system))
+                .toCompletableFuture()
+                .get();
+
         Long stop = System.currentTimeMillis();
+
+        Long length = 1000L * 6;
+
         assertThat(stop - start).isGreaterThan(length);
 
-        assertThat(error).hasCauseInstanceOf(Elastic.BulkWithRetryException.class);
-        Elastic.BulkWithRetryException bulkWithRetryException = Elastic.BulkWithRetryException.class.cast(error.getCause());
-        assertThat(bulkWithRetryException.bulkResponse.getErrors()).hasSize(5);
+        assertThat(results).hasSize(4);
+
+        javaslang.collection.List<Elastic.BulkFailure> onError = javaslang.collection.List.ofAll(results).filter(Either::isLeft).map(Either::getLeft);
+        assertThat(onError).hasSize(2);
+        onError.forEach(err ->
+                assertThat(err.bulkResponse.getErrors()).hasSize(5)
+        );
 
         elasticClient.refresh(INDEX).toCompletableFuture().get();
 

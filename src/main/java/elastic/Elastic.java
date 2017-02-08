@@ -16,6 +16,7 @@ import javaslang.Tuple2;
 import javaslang.collection.HashMap;
 import javaslang.collection.List;
 import javaslang.collection.Seq;
+import javaslang.control.Either;
 import javaslang.control.Option;
 import javaslang.control.Try;
 import org.apache.http.HttpEntity;
@@ -42,8 +43,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 
 import static javaslang.API.*;
-import static javaslang.Patterns.None;
-import static javaslang.Patterns.Some;
+import static javaslang.Patterns.*;
 
 public class Elastic implements Closeable {
 
@@ -216,16 +216,16 @@ public class Elastic implements Closeable {
         return windows.mapAsync(parallelisation, this::oneBulk).map(p -> p._1.get());
     }
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
         return bulkWithRetry(batchSize, null, parallelism, nbRetry, latency, retryMode);
     }
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
         return bulkWithRetry(batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
     }
 
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
@@ -238,7 +238,7 @@ public class Elastic implements Closeable {
                 );
     }
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
         return bulkWithRetry(batchSize, within, parallelism, nbRetry, latency, retryMode, defaultIsBulkOnError());
     }
 
@@ -246,7 +246,7 @@ public class Elastic implements Closeable {
         return pair -> pair._2.getStatusLine().getStatusCode() == 503 || pair._2.getStatusLine().getStatusCode() == 429 || pair._1.isFailure();
     }
 
-    public Source<BulkResponse, NotUsed> oneBulkWithRetry(java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+    public Source<Either<BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetry(java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
         Flow<Integer, Integer, NotUsed> latencyFlow;
         if (retryMode == RetryMode.ExponentialLatency) {
             latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> i, ThrottleMode.shaping());
@@ -263,15 +263,12 @@ public class Elastic implements Closeable {
                 .orElse(Source.lazily(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items))))
                 .map(r -> {
                     if(isError.test(r)) {
-                        if(r._1.isFailure()) {
-                            throw new BulkWithRetryException(r._1.getCause(), r._2);
-                        } else {
-                            BulkResponse b = r._1.get();
-                            String message = List.ofAll(b.getErrors()).map(e -> e.bulkResult().error()).map(Json::stringify).mkString("\n");
-                            throw new BulkWithRetryException(message, b, r._2);
-                        }
+                        return Match(r._1).of(
+                                Case(Success($()), s -> Either.left(BulkFailure.fromBulkResponse(s, r._2))),
+                                Case(Failure($()), e -> Either.left(BulkFailure.fromException(e, r._2)))
+                        );
                     } else {
-                        return r._1.get();
+                        return Either.right(r._1.get());
                     }
                 });
     }
@@ -461,39 +458,36 @@ public class Elastic implements Closeable {
         ExponentialLatency, LineareLatency, NoLatency
     }
 
-    public static class BulkWithRetryException extends RuntimeException {
+    public static class BulkFailure {
 
         public final BulkResponse bulkResponse;
         public final Response rawResponse;
+        public final Throwable cause;
 
-        public BulkWithRetryException(String message, Response rawResponse) {
-            super(message);
-            this.rawResponse = rawResponse;
-            this.bulkResponse = null;
-        }
-
-        public BulkWithRetryException(Throwable cause, Response rawResponse) {
-            super(cause);
-            this.rawResponse = rawResponse;
-            this.bulkResponse = null;
-        }
-
-        public BulkWithRetryException(Throwable cause, BulkResponse bulkResponse, Response rawResponse) {
-            super(cause);
+        private BulkFailure(BulkResponse bulkResponse, Response rawResponse, Throwable cause) {
             this.bulkResponse = bulkResponse;
             this.rawResponse = rawResponse;
+            this.cause = cause;
         }
 
-        public BulkWithRetryException(String message, BulkResponse bulkResponse, Response rawResponse) {
-            super(message);
-            this.bulkResponse = bulkResponse;
-            this.rawResponse = rawResponse;
+        public static BulkFailure fromException(Throwable cause, Response rawResponse) {
+            return new BulkFailure(null, rawResponse, cause);
         }
 
-        public BulkWithRetryException(String message, Throwable cause, BulkResponse bulkResponse, Response rawResponse) {
-            super(message, cause);
-            this.bulkResponse = bulkResponse;
-            this.rawResponse = rawResponse;
+        public static BulkFailure fromBulkResponse(BulkResponse bulkResponse, Response rawResponse) {
+            return new BulkFailure(bulkResponse, rawResponse, null);
+        }
+
+        public BulkResponse bulkResponse() {
+            return bulkResponse;
+        }
+
+        public Response rawResponse() {
+            return rawResponse;
+        }
+
+        public Throwable cause() {
+            return cause;
         }
     }
 }
