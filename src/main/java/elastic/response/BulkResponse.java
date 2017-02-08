@@ -1,15 +1,12 @@
 package elastic.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.JsonNode;
+import javaslang.collection.List;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Format;
-
-import com.fasterxml.jackson.databind.JsonNode;
-
-import javaslang.collection.List;
 
 
 public class BulkResponse {
