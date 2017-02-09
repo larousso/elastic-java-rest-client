@@ -13,6 +13,7 @@ import elastic.request.BulkItem;
 import elastic.response.BulkResponse;
 import elastic.response.GetResponse;
 import elastic.response.IndexResponse;
+import elastic.response.SearchResponse;
 import javaslang.control.Either;
 import javaslang.control.Option;
 import org.apache.http.HttpHost;
@@ -123,6 +124,23 @@ public class ElasticTest {
         assertThat(elt.found).isTrue();
         Option<Person> mayBePerson = elt.as(Person.read);
         ElasticTest.Person person = mayBePerson.get();
+        assertThat(person.name).isEqualTo("Jean Claude Dus");
+    }
+
+    @Test
+    public void search_data_should_work() throws ExecutionException, InterruptedException {
+        createIndexWithMapping();
+        IndexResponse indexResponse = elasticClient.index(INDEX, TYPE, Json.obj().with("name", "Jean Claude Dus"), Option.some("1")).toCompletableFuture().get();
+
+        elasticClient.refresh().toCompletableFuture().get();
+
+        assertThat(indexResponse.created).isTrue();
+        assertThat(indexResponse._id).isEqualTo("1");
+
+        SearchResponse searchResponse = elasticClient.search(INDEX, TYPE, Json.obj().with("query", Json.obj().with("match_all", Json.obj()))).toCompletableFuture().get();
+        assertThat(searchResponse.hits.total).isEqualTo(1);
+        javaslang.collection.List<Person> people = searchResponse.hits.hitsAs(Person.read);
+        ElasticTest.Person person = people.head();
         assertThat(person.name).isEqualTo("Jean Claude Dus");
     }
 
