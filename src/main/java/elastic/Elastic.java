@@ -466,13 +466,14 @@ public class Elastic implements Closeable {
         ExponentialLatency, LineareLatency, NoLatency
     }
 
-    public static class BulkFailure {
+    public static class BulkFailure extends RuntimeException {
 
         public final BulkResponse bulkResponse;
         public final Response rawResponse;
         public final Throwable cause;
 
         private BulkFailure(BulkResponse bulkResponse, Response rawResponse, Throwable cause) {
+            super(cause);
             this.bulkResponse = bulkResponse;
             this.rawResponse = rawResponse;
             this.cause = cause;
