@@ -1,7 +1,6 @@
 package elastic.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.JsonNode;
 import javaslang.control.Option;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
@@ -13,7 +12,7 @@ import org.reactivecouchbase.json.mapping.Reader;
  * Created by adelegue on 20/10/2016.
  */
 public class GetResponse {
-    public final static Format<GetResponse> format = Json.format(GetResponse.class);
+    public final static Reader<GetResponse> reads = Json.reads(GetResponse.class);
 
     public String _index;
 
@@ -25,11 +24,11 @@ public class GetResponse {
 
     public Boolean found;
 
-    public JsonNode _source;
+    public JsValue _source;
 
     private JsValue source() {
         if(_source != null)
-            return Json.fromJsonNode(_source);
+            return _source;
         else
             return new JsNull();
     }
@@ -43,12 +42,16 @@ public class GetResponse {
         }
     }
 
-    public String stringify() {
-        return Json.stringify(Json.toJson(this, format));
-    }
-
     @Override
     public String toString() {
-        return stringify();
+        final StringBuffer sb = new StringBuffer("GetResponse{");
+        sb.append("_index='").append(_index).append('\'');
+        sb.append(", _type='").append(_type).append('\'');
+        sb.append(", _id='").append(_id).append('\'');
+        sb.append(", _version=").append(_version);
+        sb.append(", found=").append(found);
+        sb.append(", _source=").append(_source);
+        sb.append('}');
+        return sb.toString();
     }
 }

@@ -87,7 +87,7 @@ public class Elastic implements Closeable {
     public CompletionStage<GetResponse> get(String index, String type, String id) {
         String path = List.of(index, type, id).mkString("/");
         return request(path, "GET")
-                .thenCompose(convert(GetResponse.format));
+                .thenCompose(convert(GetResponse.reads));
     }
 
     public CompletionStage<SearchResponse> search(JsValue query) {
@@ -105,7 +105,7 @@ public class Elastic implements Closeable {
     public CompletionStage<SearchResponse> search(Option<String> index, Option<String> type, JsValue query) {
         String path = "/" + List.of(index, type, Option.of("_search")).flatMap(identity()).mkString("/");
         return request(path, "POST", query)
-                .thenCompose(convert(SearchResponse.format));
+                .thenCompose(convert(SearchResponse.reads));
     }
 
     public CompletionStage<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId) {
@@ -133,7 +133,7 @@ public class Elastic implements Closeable {
                 }),
                 Case(None(), any -> request(basePath, "POST", data, queryMap))
         )
-                .thenCompose(convert(IndexResponse.format));
+                .thenCompose(convert(IndexResponse.reads));
         //@formatter:on
     }
 
@@ -287,7 +287,7 @@ public class Elastic implements Closeable {
                 .map(Json::stringify)
                 .mkString("\n") + "\n";
         return requestWithResponse(path, "POST", bulkBody).thenCompose(p ->
-                convert(BulkResponse.format).apply(p._1).thenApply(r -> Tuple.of(Try.success(r), p._2))
+                convert(BulkResponse.reads).apply(p._1).thenApply(r -> Tuple.of(Try.success(r), p._2))
                 .exceptionally(e -> {
                     if (e instanceof ResponseException) {
                         return Tuple.of(Try.failure(e), ((ResponseException) e).getResponse());

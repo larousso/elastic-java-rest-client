@@ -273,8 +273,6 @@ public class ElasticTest {
         assertThat(tplExists).isFalse();
     }
 
-
-
     private void createIndexWithMapping() throws ExecutionException, InterruptedException {
         elasticClient.createIndex(INDEX, Json.obj()
                 .with("mappings", Json.obj()

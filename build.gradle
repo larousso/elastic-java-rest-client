@@ -9,7 +9,7 @@ apply plugin: 'idea'
 apply plugin: 'maven-publish'
 
 group 'com.adelegue'
-version =  '1.0.6-SNAPSHOT'
+version =  '1.0.7-SNAPSHOT'
 
 jar {
     baseName = 'elastic-java-rest-client'
@@ -33,6 +33,7 @@ dependencies {
     compile("io.javaslang:javaslang:2.0.5")
     compile("com.typesafe.akka:akka-stream_2.11:2.4.16")
     compile("org.reactivecouchbase:json-lib-javaslang:1.0.0")
+    compile("io.javaslang:javaslang-jackson:2.0.5")
     compile("org.elasticsearch.client:rest:5.1.2")
     testCompile("com.typesafe.akka:akka-testkit_2.11:2.4.16")
     testCompile("org.elasticsearch:elasticsearch:2.4.3")

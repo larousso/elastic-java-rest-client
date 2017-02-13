@@ -5,7 +5,6 @@ import org.reactivecouchbase.json.JsValue;
 
 public class BulkItem {
 
-
     public final BulkOperation operation;
     public final JsValue source;
 
