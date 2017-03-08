@@ -1,6 +1,7 @@
 package elastic.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import javaslang.control.Option;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
@@ -11,6 +12,7 @@ import org.reactivecouchbase.json.mapping.Reader;
 /**
  * Created by adelegue on 20/10/2016.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class GetResponse {
     public final static Reader<GetResponse> reads = Json.reads(GetResponse.class);
 

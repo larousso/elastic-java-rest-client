@@ -1,5 +1,6 @@
 package elastic.response;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import elastic.javaslang.JsValueList;
 import javaslang.collection.List;
@@ -8,6 +9,7 @@ import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Reader;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class SearchResponse {
 
     public static final Reader<SearchResponse> reads = Json.reads(SearchResponse.class);

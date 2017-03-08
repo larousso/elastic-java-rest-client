@@ -1,6 +1,7 @@
 package elastic.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import elastic.javaslang.BulkItemList;
 import javaslang.collection.List;
@@ -9,7 +10,7 @@ import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Reader;
 
-
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class BulkResponse {
 
     public static Reader<BulkResponse> reads = Json.reads(BulkResponse.class);
