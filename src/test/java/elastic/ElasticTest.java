@@ -242,6 +242,18 @@ public class ElasticTest {
         assertThat(count).isEqualTo(10);
     }
 
+
+//    @Test
+//    public void testJson() {
+//        String json = "{\"_index\":\"test\",\"_type\":\"test\",\"_id\":\"1\",\"_version\":1,\"_shards\":{\"total\":1,\"successful\":1,\"failed\":0},\"created\":true}";
+//
+//        JsValue parse = Json.parse(json);
+//        JsResult<IndexResponse> indexResponses = Json.fromJson(parse, IndexResponse.reads);
+//        IndexResponse indexResponse = indexResponses.get();
+//
+//
+//    }
+
     @Test
     public void create_exists_get_delete_template() throws ExecutionException, InterruptedException {
         Boolean tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
