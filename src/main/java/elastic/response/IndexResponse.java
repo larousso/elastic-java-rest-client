@@ -1,10 +1,11 @@
 package elastic.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown=true)
 public class IndexResponse {
 
     public static final Reader<IndexResponse> reads = json -> {
