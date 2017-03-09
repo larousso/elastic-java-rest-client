@@ -6,11 +6,8 @@ import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import javaslang.collection.List;
 
-@JsonIgnoreProperties(ignoreUnknown=true)
 public class SearchResponse {
 
     public static final Reader<SearchResponse> reads = json -> {
@@ -31,23 +28,23 @@ public class SearchResponse {
         }
     };
 
-    public Integer took;
+    public final Integer took;
 
-    public Boolean timed_out;
+    public final Boolean timed_out;
 
-    public JsValue _shards;
+    public final JsValue _shards;
 
-    public Integer max_score;
+    public final Integer max_score;
 
-    public Hits hits;
+    public final Hits hits;
 
-    public JsValue aggregations;
+    public final JsValue aggregations;
 
-    public Boolean acknowledged;
+    public final Boolean acknowledged;
 
-    public Integer status;
+    public final Integer status;
 
-    public JsValue error;
+    public final JsValue error;
 
     public SearchResponse(Integer took, Boolean timed_out, JsValue _shards, Integer max_score, Hits hits, JsValue aggregations, Boolean acknowledged, Integer status, JsValue error) {
         this.took = took;

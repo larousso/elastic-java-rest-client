@@ -31,17 +31,17 @@ public class GetResponse {
         }
     };
 
-    public String _index;
+    public final String _index;
 
-    public String _type;
+    public final String _type;
 
-    public String _id;
+    public final String _id;
 
-    public Integer _version;
+    public final Integer _version;
 
-    public Boolean found;
+    public final Boolean found;
 
-    public JsValue _source;
+    public final JsValue _source;
 
     public GetResponse(String _index, String _type, String _id, Integer _version, Boolean found, JsValue _source) {
         this._index = _index;

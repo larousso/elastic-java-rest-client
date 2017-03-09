@@ -23,17 +23,14 @@ public class BulkResponse {
         }
     };
 
-    public Long took;
-    public Boolean errors;
-    public List<BulkItem> items = List.empty();
-
-    public BulkResponse() {
-    }
+    public final Long took;
+    public final Boolean errors;
+    public final List<BulkItem> items;
 
     public BulkResponse(Long took, Boolean errors, List<BulkItem> items) {
         this.took = took;
         this.errors = errors;
-        this.items = items;
+        this.items = items == null ? List.empty() : items;
     }
 
     public List<BulkItem> getErrors() {
@@ -62,17 +59,17 @@ public class BulkResponse {
             }
         };
 
-        public String _id;
-        public String _index;
-        public String _type;
-        public BulkResult index;
-        public BulkResult create;
-        public BulkResult update;
-        public BulkResult delete;
-        public JsValue error;
-        public JsValue status;
-        public Long took;
-        public String _version;
+        public final String _id;
+        public final String _index;
+        public final String _type;
+        public final BulkResult index;
+        public final BulkResult create;
+        public final BulkResult update;
+        public final BulkResult delete;
+        public final JsValue error;
+        public final JsValue status;
+        public final Long took;
+        public final String _version;
 
         public BulkItem(String _id, String _index, String _type, BulkResult index, BulkResult create, BulkResult update, BulkResult delete, JsValue error, JsValue status, Long took, String _version) {
             this._id = _id;
@@ -138,14 +135,14 @@ public class BulkResponse {
             }
         };
 
-        public String _index;
-        public String _type;
-        public String _id;
-        public Integer _version;
-        public Integer status;
-        public Boolean created;
-        public JsValue _shards;
-        public JsValue error;
+        public final String _index;
+        public final String _type;
+        public final String _id;
+        public final Integer _version;
+        public final Integer status;
+        public final Boolean created;
+        public final JsValue _shards;
+        public final JsValue error;
 
         public BulkResult(String _index, String _type, String _id, Integer _version, Integer status, Boolean created, JsValue _shards, JsValue error) {
             this._index = _index;

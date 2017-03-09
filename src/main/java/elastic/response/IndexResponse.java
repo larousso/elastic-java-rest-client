@@ -24,22 +24,19 @@ public class IndexResponse {
         }
     };
 
-    public String _index;
+    public final String _index;
 
-    public String _type;
+    public final String _type;
 
-    public String _id;
+    public final String _id;
 
-    public Integer _version;
+    public final Integer _version;
 
-    public Boolean created;
+    public final Boolean created;
 
-    public Boolean found;
+    public final Boolean found;
 
-    public JsValue _shards;
-
-    public IndexResponse() {
-    }
+    public final JsValue _shards;
 
     public IndexResponse(String _index, String _type, String _id, Integer _version, Boolean created, Boolean found, JsValue _shards) {
         this._index = _index;
