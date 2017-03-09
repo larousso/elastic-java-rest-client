@@ -14,7 +14,6 @@ import javaslang.control.Option;
 /**
  * Created by adelegue on 20/10/2016.
  */
-@JsonIgnoreProperties(ignoreUnknown=true)
 public class GetResponse {
     public final static Reader<GetResponse> reads = json -> {
         try {

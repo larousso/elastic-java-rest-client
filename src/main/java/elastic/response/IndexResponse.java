@@ -5,7 +5,7 @@ import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-@JsonIgnoreProperties(ignoreUnknown=true)
+
 public class IndexResponse {
 
     public static final Reader<IndexResponse> reads = json -> {
