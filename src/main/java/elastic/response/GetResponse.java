@@ -8,6 +8,7 @@ import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Format;
+import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
 
 /**
@@ -15,7 +16,20 @@ import org.reactivecouchbase.json.mapping.Reader;
  */
 @JsonIgnoreProperties(ignoreUnknown=true)
 public class GetResponse {
-    public final static Reader<GetResponse> reads = Json.reads(GetResponse.class);
+    public final static Reader<GetResponse> reads = json -> {
+        try {
+            return JsResult.success(new GetResponse(
+                    json.field("_index").asOptString().getOrElse(() -> null),
+                    json.field("_type").asOptString().getOrElse(() -> null),
+                    json.field("_id").asOptString().getOrElse(() -> null),
+                    json.field("_version").asOptInteger().getOrElse(() -> null),
+                    json.field("found").asOptBoolean().getOrElse(() -> null),
+                    json.field("_source")
+            ));
+        } catch (Exception e) {
+            return JsResult.error(e);
+        }
+    };
 
     public String _index;
 
@@ -28,6 +42,15 @@ public class GetResponse {
     public Boolean found;
 
     public JsValue _source;
+
+    public GetResponse(String _index, String _type, String _id, Integer _version, Boolean found, JsValue _source) {
+        this._index = _index;
+        this._type = _type;
+        this._id = _id;
+        this._version = _version;
+        this.found = found;
+        this._source = _source;
+    }
 
     private JsValue source() {
         if(_source != null)

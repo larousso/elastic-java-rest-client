@@ -1,22 +1,28 @@
 package elastic.response;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import elastic.javaslang.BulkItemList;
 import javaslang.collection.List;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
-import org.reactivecouchbase.json.Json;
+import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
 
-@JsonIgnoreProperties(ignoreUnknown=true)
+
 public class BulkResponse {
 
-    public static Reader<BulkResponse> reads = Json.reads(BulkResponse.class);
+    public static Reader<BulkResponse> reads = json -> {
+        try {
+            return JsResult.success(new BulkResponse(
+                    json.field("took").asOptLong().getOrElse(() -> null),
+                    json.field("errors").asOptBoolean().getOrElse(() -> null),
+                    List.ofAll(json.field("items").asArray()).map(js -> js.read(BulkItem.reads).get())
+            ));
+        } catch (Exception e) {
+            return JsResult.error(e);
+        }
+    };
 
     public Long took;
     public Boolean errors;
-    @JsonDeserialize(using = BulkItemList.class)
     public List<BulkItem> items = List.empty();
 
     public BulkResponse() {
@@ -33,6 +39,27 @@ public class BulkResponse {
     }
 
     public static class BulkItem {
+
+        public static final Reader<BulkItem> reads =  json -> {
+            try {
+                return JsResult.success(new BulkItem(
+                    json.field("_id").asOptString().getOrElse(() -> null),
+                    json.field("_index").asOptString().getOrElse(() -> null),
+                    json.field("_type").asOptString().getOrElse(() -> null),
+                    json.field("index").asOpt(BulkResult.reads).getOrElse(() -> null),
+                    json.field("create").asOpt(BulkResult.reads).getOrElse(() -> null),
+                    json.field("update").asOpt(BulkResult.reads).getOrElse(() -> null),
+                    json.field("delete").asOpt(BulkResult.reads).getOrElse(() -> null),
+                    json.field("error"),
+                    json.field("status"),
+                    json.field("took").asOptLong().getOrElse(() -> null),
+                    json.field("_version").asOptString().getOrElse(() -> null)
+                ));
+            } catch (Exception e) {
+                return JsResult.error(e);
+            }
+        };
+
         public String _id;
         public String _index;
         public String _type;
@@ -44,6 +71,20 @@ public class BulkResponse {
         public JsValue status;
         public Long took;
         public String _version;
+
+        public BulkItem(String _id, String _index, String _type, BulkResult index, BulkResult create, BulkResult update, BulkResult delete, JsValue error, JsValue status, Long took, String _version) {
+            this._id = _id;
+            this._index = _index;
+            this._type = _type;
+            this.index = index;
+            this.create = create;
+            this.update = update;
+            this.delete = delete;
+            this.error = error;
+            this.status = status;
+            this.took = took;
+            this._version = _version;
+        }
 
         public BulkResult bulkResult() {
             if(index != null)
@@ -76,8 +117,25 @@ public class BulkResponse {
         }
     }
 
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class BulkResult {
+
+        public static final Reader<BulkResult> reads =  json -> {
+            try {
+                return JsResult.success(new BulkResult(
+                    json.field("_index").asOptString().getOrElse(() -> null),
+                    json.field("_type").asOptString().getOrElse(() -> null),
+                    json.field("_id").asOptString().getOrElse(() -> null),
+                    json.field("_version").asOptInteger().getOrElse(() -> null),
+                    json.field("status").asOptInteger().getOrElse(() -> null),
+                    json.field("created").asOptBoolean().getOrElse(() -> null),
+                    json.field("_shards"),
+                    json.field("error")
+                ));
+            } catch (Exception e) {
+                return JsResult.error(e);
+            }
+        };
+
         public String _index;
         public String _type;
         public String _id;
@@ -86,6 +144,17 @@ public class BulkResponse {
         public Boolean created;
         public JsValue _shards;
         public JsValue error;
+
+        public BulkResult(String _index, String _type, String _id, Integer _version, Integer status, Boolean created, JsValue _shards, JsValue error) {
+            this._index = _index;
+            this._type = _type;
+            this._id = _id;
+            this._version = _version;
+            this.status = status;
+            this.created = created;
+            this._shards = _shards;
+            this.error = error;
+        }
 
         public Boolean hasError() {
             return error != null;
