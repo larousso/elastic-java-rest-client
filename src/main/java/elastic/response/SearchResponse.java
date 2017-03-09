@@ -1,15 +1,14 @@
 package elastic.response;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import elastic.javaslang.JsValueList;
-import javaslang.collection.List;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+import javaslang.collection.List;
 
 @JsonIgnoreProperties(ignoreUnknown=true)
 public class SearchResponse {

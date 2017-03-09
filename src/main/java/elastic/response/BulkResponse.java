@@ -1,10 +1,12 @@
 package elastic.response;
 
-import javaslang.collection.List;
 import org.reactivecouchbase.json.JsNull;
+import org.reactivecouchbase.json.JsObject;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
+
+import javaslang.collection.List;
 
 
 public class BulkResponse {
@@ -46,10 +48,10 @@ public class BulkResponse {
                     json.field("_id").asOptString().getOrElse(() -> null),
                     json.field("_index").asOptString().getOrElse(() -> null),
                     json.field("_type").asOptString().getOrElse(() -> null),
-                    json.field("index").asOpt(BulkResult.reads).getOrElse(() -> null),
-                    json.field("create").asOpt(BulkResult.reads).getOrElse(() -> null),
-                    json.field("update").asOpt(BulkResult.reads).getOrElse(() -> null),
-                    json.field("delete").asOpt(BulkResult.reads).getOrElse(() -> null),
+                    json.field("index").asOptObject().map(o -> o.as(BulkResult.reads)).getOrElse(() -> null),
+                    json.field("create").asOptObject().map(o -> o.as(BulkResult.reads)).getOrElse(() -> null),
+                    json.field("update").asOptObject().map(o -> o.as(BulkResult.reads)).getOrElse(() -> null),
+                    json.field("delete").asOptObject().map(o -> o.as(BulkResult.reads)).getOrElse(() -> null),
                     json.field("error"),
                     json.field("status"),
                     json.field("took").asOptLong().getOrElse(() -> null),
@@ -157,7 +159,8 @@ public class BulkResponse {
         }
 
         public Boolean hasError() {
-            return error != null;
+            return error() instanceof JsObject;
+            //return !error().equals(new JsUndefined()) && !error().equals(new JsNull());
         }
 
         public JsValue error() {

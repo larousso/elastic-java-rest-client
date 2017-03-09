@@ -1,10 +1,10 @@
 package elastic.response;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @JsonIgnoreProperties(ignoreUnknown=true)
 public class IndexResponse {
 
@@ -17,7 +17,7 @@ public class IndexResponse {
                     json.field("_version").asInteger(),
                     json.field("created").asBoolean(),
                     json.field("found").asOptBoolean().getOrElse((Boolean) null),
-                    json.field("_shards").asObject()
+                    json.field("_shards")
             ));
         } catch (Exception e) {
             return JsResult.error(e);

@@ -1,5 +1,21 @@
 package elastic;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.HttpHost;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.reactivecouchbase.json.JsValue;
+import org.reactivecouchbase.json.Json;
+import org.reactivecouchbase.json.mapping.Reader;
+
 import akka.actor.ActorSystem;
 import akka.japi.pf.FI;
 import akka.japi.pf.Match;
@@ -16,22 +32,7 @@ import elastic.response.IndexResponse;
 import elastic.response.SearchResponse;
 import javaslang.control.Either;
 import javaslang.control.Option;
-import org.apache.http.HttpHost;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.reactivecouchbase.json.JsValue;
-import org.reactivecouchbase.json.Json;
-import org.reactivecouchbase.json.mapping.Reader;
 import scala.concurrent.duration.FiniteDuration;
-
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 
 public class ElasticTest {

@@ -1,5 +1,30 @@
 package elastic;
 
+import static javaslang.API.*;
+import static javaslang.Patterns.*;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Function;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.entity.ContentType;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.nio.entity.NStringEntity;
+import org.apache.http.util.EntityUtils;
+import org.elasticsearch.client.*;
+import org.reactivecouchbase.json.JsObject;
+import org.reactivecouchbase.json.JsValue;
+import org.reactivecouchbase.json.Json;
+import org.reactivecouchbase.json.mapping.Reader;
+
 import akka.NotUsed;
 import akka.japi.function.Predicate;
 import akka.stream.ThrottleMode;
@@ -19,31 +44,7 @@ import javaslang.collection.Seq;
 import javaslang.control.Either;
 import javaslang.control.Option;
 import javaslang.control.Try;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.entity.ContentType;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.nio.entity.NStringEntity;
-import org.apache.http.util.EntityUtils;
-import org.elasticsearch.client.*;
-import org.reactivecouchbase.json.JsObject;
-import org.reactivecouchbase.json.JsValue;
-import org.reactivecouchbase.json.Json;
-import org.reactivecouchbase.json.mapping.Reader;
 import scala.concurrent.duration.FiniteDuration;
-
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
-
-import static javaslang.API.*;
-import static javaslang.Patterns.*;
 
 public class Elastic implements Closeable {
 
