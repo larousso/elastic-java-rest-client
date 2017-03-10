@@ -82,7 +82,7 @@ public class ElasticTest {
                 .field("properties").asObject()
                 .field("name").asObject()
                 .field("type").asString();
-        assertThat(type).isEqualTo("string");
+        assertThat(type).isIn("string", "keyword");
     }
 
 
@@ -110,7 +110,7 @@ public class ElasticTest {
                 .field("properties").asObject()
                 .field("name").asObject()
                 .field("type").asString();
-        assertThat(type).isEqualTo("string");
+        assertThat(type).isIn("string", "keyword");
     }
 
     @Test

@@ -1,6 +1,6 @@
 package elastic;
 
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
+//import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 
 import java.io.File;
 import java.io.IOException;
@@ -8,14 +8,18 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.UUID;
 
-import javax.annotation.PreDestroy;
-
+import javaslang.control.Try;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.node.Node;
+import org.elasticsearch.node.internal.InternalSettingsPreparer;
+import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.transport.Netty4Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,17 +41,20 @@ public class NodeStarter {
 
     private Node startNode(String homePath) {
         LOGGER.info("Starting local es node with http.port {}", httpPort);
-        Node node = nodeBuilder()
-                .settings(Settings.settingsBuilder()
-                        .put("path.home", homePath)
-                        .put("http.port", httpPort)
-                        .put("index.number_of_shards", 1)
-                        .put("index.number_of_replicas", 0)
-                )
-                .local(true)
-                .node();
 
-        node.start();
+        Node node = new MyNode(Settings.builder()
+                    .put("path.home", homePath)
+                    .put("http.port", httpPort)
+                    .put("http.enabled", "true")
+                    .put("transport.type", "netty4")
+                    .put("http.type", "netty4")
+                    .build(),
+                Arrays.asList(Netty4Plugin.class)
+        );
+
+        Try.of(() ->
+            node.start()
+        ).get();
 
         node.client().admin().cluster()
                 .prepareHealth()
@@ -59,8 +66,7 @@ public class NodeStarter {
         return node;
     }
 
-    @PreDestroy
-    public void closeNode() {
+    public void closeNode() throws IOException {
         LOGGER.info("Closing local es node");
         esNode.close();
         Path rootPath = Paths.get(homePath);
@@ -72,6 +78,12 @@ public class NodeStarter {
                     .forEach(File::delete);
         } catch (IOException e) {
             LOGGER.error("Error deleting ES datas", e);
+        }
+    }
+
+    private static class MyNode extends Node {
+        public MyNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
+            super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null), classpathPlugins);
         }
     }
 }
