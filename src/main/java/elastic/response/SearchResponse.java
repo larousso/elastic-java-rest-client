@@ -1,8 +1,7 @@
 package elastic.response;
 
-import org.reactivecouchbase.json.JsNull;
-import org.reactivecouchbase.json.JsValue;
-import org.reactivecouchbase.json.Json;
+import javaslang.control.Option;
+import org.reactivecouchbase.json.*;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
 import static org.reactivecouchbase.json.Syntax.*;
@@ -30,17 +29,21 @@ public class SearchResponse {
         }
     };
 
-    public static final Writer<SearchResponse> writes = response -> Json.obj(
-            $("took", response.took),
-            $("timed_out", response.timed_out),
-            $("_shards", response._shards),
-            $("max_score", response.max_score),
-            $("hits", Json.toJson(response.hits, Hits.writes)),
-            $("aggregations", response.aggregations),
-            $("acknowledged", response.acknowledged),
-            $("status", response.status),
-            $("error", response.error)
-    );
+    public static final Writer<SearchResponse> writes = response -> {
+        List<JsPair> jsPairs = List.of(
+                Option.of(response.took).map(n -> $("took", n)),
+                Option.of(response.took).map(n -> $("took", n)),
+                Option.of(response.timed_out).map(n -> $("timed_out", n)),
+                Option.of(response._shards).map(n -> $("_shards", n)),
+                Option.of(response.max_score).map(n -> $("max_score", n)),
+                Option.of($("hits", Json.toJson(response.hits, Hits.writes))),
+                Option.of(response.aggregations).map(n -> $("aggregations", n)),
+                Option.of(response.acknowledged).map(n -> $("acknowledged", n)),
+                Option.of(response.status).map(n -> $("status", n)),
+                Option.of(response.error).map(n -> $("error", n))
+        ).flatMap(e -> e);
+        return Json.obj(jsPairs.toJavaArray(JsPair.class));
+    };
 
 
 
@@ -96,11 +99,14 @@ public class SearchResponse {
             }
         };
 
-        public static final Writer<Hits> writes = hits -> Json.obj(
-                $("total", hits.total),
-                $("max_score", hits.max_score),
-                $("hits", Json.arr(hits.hits.toJavaArray()))
-        );
+        public static final Writer<Hits> writes = hits -> {
+            List<JsPair> fields = List.of(
+                Option.of(hits.total).map(n -> $("total", n)),
+                Option.of(hits.max_score).map(n -> $("max_score", n)),
+                Option.of($("hits", Json.arr(hits.hits.toJavaArray())))
+            ).flatMap(e -> e);
+            return Json.obj(fields.toJavaArray(JsPair.class));
+        };
 
         public Long total;
 

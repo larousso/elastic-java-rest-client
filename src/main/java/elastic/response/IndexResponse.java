@@ -1,5 +1,8 @@
 package elastic.response;
 
+import javaslang.collection.List;
+import javaslang.control.Option;
+import org.reactivecouchbase.json.JsPair;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.JsResult;
@@ -26,15 +29,15 @@ public class IndexResponse {
         }
     };
 
-    public static final Writer<IndexResponse> writes = response -> Json.obj(
-            $("_index", response._index),
-            $("_type", response._type),
-            $("_id", response._id),
-            $("_version", response._version),
-            $("created", response.created),
-            $("found", response.found),
-            $("_shards", response._shards)
-    );
+    public static final Writer<IndexResponse> writes = response -> Json.obj(List.of(
+            Option.of(response._index).map(n -> $("_index", n)),
+            Option.of(response._type).map(n -> $("_type", n)),
+            Option.of(response._id).map(n -> $("_id", n)),
+            Option.of(response._version).map(n -> $("_version", n)),
+            Option.of(response.created).map(n -> $("created", n)),
+            Option.of(response.found).map(n -> $("found", n)),
+            Option.of($("_shards", response._shards))
+    ).flatMap(e -> e).toJavaArray(JsPair.class));
 
     public final String _index;
 

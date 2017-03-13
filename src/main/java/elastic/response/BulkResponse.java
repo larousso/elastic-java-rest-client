@@ -1,14 +1,14 @@
 package elastic.response;
 
-import org.reactivecouchbase.json.JsNull;
-import org.reactivecouchbase.json.JsObject;
-import org.reactivecouchbase.json.JsValue;
-import org.reactivecouchbase.json.Json;
+import javaslang.control.Option;
+import org.reactivecouchbase.json.*;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
 
 import javaslang.collection.List;
 import org.reactivecouchbase.json.mapping.Writer;
+
+import javax.swing.*;
 
 import static org.reactivecouchbase.json.Syntax.$;
 
@@ -159,16 +159,16 @@ public class BulkResponse {
             }
         };
 
-        public static final Writer<BulkResult> writes = result -> Json.obj(
-                $("_index", result._index),
-                $("_type", result._type),
-                $("_id", result._id),
-                $("_version", result._version),
-                $("status", result.status),
-                $("created", result.created),
-                $("_shards", result._shards),
-                $("error", result.error)
-        );
+        public static final Writer<BulkResult> writes = result -> Json.obj(List.of(
+                Option.of(result._index).map(n -> $("_index", n)),
+                Option.of(result._type).map(n -> $("_type", n)),
+                Option.of(result._id).map(n -> $("_id", n)),
+                Option.of(result._version).map(n -> $("_version", n)),
+                Option.of(result.status).map(n -> $("status", n)),
+                Option.of(result.created).map(n -> $("created", n)),
+                Option.of(result._shards).map(n -> $("_shards", n)),
+                Option.of($("error", result.error))
+        ).flatMap(e -> e).toJavaArray(JsPair.class));
 
         public final String _index;
         public final String _type;
