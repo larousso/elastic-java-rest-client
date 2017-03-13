@@ -1,10 +1,12 @@
 package elastic.response;
 
 import org.reactivecouchbase.json.JsValue;
+import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
+import org.reactivecouchbase.json.mapping.Writer;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import static org.reactivecouchbase.json.Syntax.$;
 
 public class IndexResponse {
 
@@ -23,6 +25,16 @@ public class IndexResponse {
             return JsResult.error(e);
         }
     };
+
+    public static final Writer<IndexResponse> writes = response -> Json.obj(
+            $("_index", response._index),
+            $("_type", response._type),
+            $("_id", response._id),
+            $("_version", response._version),
+            $("created", response.created),
+            $("found", response.found),
+            $("_shards", response._shards)
+    );
 
     public final String _index;
 

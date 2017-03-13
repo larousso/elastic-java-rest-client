@@ -3,10 +3,14 @@ package elastic.response;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsObject;
 import org.reactivecouchbase.json.JsValue;
+import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
 
 import javaslang.collection.List;
+import org.reactivecouchbase.json.mapping.Writer;
+
+import static org.reactivecouchbase.json.Syntax.$;
 
 
 public class BulkResponse {
@@ -22,6 +26,12 @@ public class BulkResponse {
             return JsResult.error(e);
         }
     };
+
+    public static final Writer<BulkResponse> writes = response -> Json.obj(
+            $("took", response.took),
+            $("errors", response.errors),
+            $("items", Json.arr(response.items.map(i -> Json.toJson(i, BulkItem.writes)).toJavaArray()))
+    );
 
     public final Long took;
     public final Boolean errors;
@@ -58,6 +68,20 @@ public class BulkResponse {
                 return JsResult.error(e);
             }
         };
+
+        public static final Writer<BulkItem> writes = item -> Json.obj(
+                $("_id", item._id),
+                $("_index", item._index),
+                $("_type", item._type),
+                $("index", Json.toJson(item.index, BulkResult.writes)),
+                $("create", Json.toJson(item.index, BulkResult.writes)),
+                $("update", Json.toJson(item.index, BulkResult.writes)),
+                $("delete", Json.toJson(item.index, BulkResult.writes)),
+                $("error", item.error),
+                $("status", item.status),
+                $("took", item.took),
+                $("_version", item._version)
+        );
 
         public final String _id;
         public final String _index;
@@ -134,6 +158,17 @@ public class BulkResponse {
                 return JsResult.error(e);
             }
         };
+
+        public static final Writer<BulkResult> writes = result -> Json.obj(
+                $("_index", result._index),
+                $("_type", result._type),
+                $("_id", result._id),
+                $("_version", result._version),
+                $("status", result.status),
+                $("created", result.created),
+                $("_shards", result._shards),
+                $("error", result.error)
+        );
 
         public final String _index;
         public final String _type;

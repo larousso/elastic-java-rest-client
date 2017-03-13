@@ -5,8 +5,10 @@ import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
+import static org.reactivecouchbase.json.Syntax.*;
 
 import javaslang.collection.List;
+import org.reactivecouchbase.json.mapping.Writer;
 
 public class SearchResponse {
 
@@ -27,6 +29,20 @@ public class SearchResponse {
             return JsResult.error(e);
         }
     };
+
+    public static final Writer<SearchResponse> writes = response -> Json.obj(
+            $("took", response.took),
+            $("timed_out", response.timed_out),
+            $("_shards", response._shards),
+            $("max_score", response.max_score),
+            $("hits", Json.toJson(response.hits, Hits.writes)),
+            $("aggregations", response.aggregations),
+            $("acknowledged", response.acknowledged),
+            $("status", response.status),
+            $("error", response.error)
+    );
+
+
 
     public final Integer took;
 
@@ -79,6 +95,12 @@ public class SearchResponse {
                 return JsResult.error(e);
             }
         };
+
+        public static final Writer<Hits> writes = hits -> Json.obj(
+                $("total", hits.total),
+                $("max_score", hits.max_score),
+                $("hits", Json.arr(hits.hits.toJavaArray()))
+        );
 
         public Long total;
 

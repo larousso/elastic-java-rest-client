@@ -1,15 +1,15 @@
 package elastic.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import javaslang.control.Option;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsValue;
 import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
+import org.reactivecouchbase.json.mapping.Writer;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
-import javaslang.control.Option;
+import static org.reactivecouchbase.json.Syntax.$;
 
 /**
  * Created by adelegue on 20/10/2016.
@@ -29,6 +29,15 @@ public class GetResponse {
             return JsResult.error(e);
         }
     };
+
+    public static final Writer<GetResponse> writes = response -> Json.obj(
+            $("_index", response._index),
+            $("_type", response._type),
+            $("_id", response._id),
+            $("_version", response._version),
+            $("found", response.found),
+            $("_source", response._source)
+    );
 
     public final String _index;
 
