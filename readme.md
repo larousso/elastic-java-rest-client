@@ -14,8 +14,11 @@ repositories {
         dirs 'libs'
     }
 }
+```
+
 Dependency :
 
+```groovy
 dependencies {
     compile("com.adelegue:elastic-java-rest-client:1.0.10")
 }
