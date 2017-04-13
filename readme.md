@@ -1,8 +1,10 @@
 # Elastic java client
 
+Wrapper around elastic rest client with support for Akka streams, javaslang et JsonLibJavasLang. 
+
 ## Installation 
 
-Repository :
+### Repository :
 
 ```groovy
 repositories {
@@ -16,7 +18,7 @@ repositories {
 }
 ```
 
-Dependency :
+### Dependency :
 
 ```groovy
 dependencies {
