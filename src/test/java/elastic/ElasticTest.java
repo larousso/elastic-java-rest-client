@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +35,7 @@ import javaslang.control.Either;
 import javaslang.control.Option;
 import scala.concurrent.duration.FiniteDuration;
 
+import static org.reactivecouchbase.json.Syntax.*;
 
 public class ElasticTest {
 
@@ -91,16 +93,19 @@ public class ElasticTest {
     public void mapping_creation_should_work() throws ExecutionException, InterruptedException {
         Boolean exists = elasticClient.indexExists(INDEX).toCompletableFuture().get();
         assertThat(exists).isFalse();
-        elasticClient.createIndex(INDEX, Json.obj()).toCompletableFuture().get();
+        CompletionStage<JsValue> indexCreationResponse = elasticClient.createIndex(INDEX, Json.obj());
+        indexCreationResponse.toCompletableFuture().get();
 
         assertThat(elasticClient.indexExists(INDEX).toCompletableFuture().get()).isTrue();
-        elasticClient.createMapping(INDEX, "test", Json.obj()
-                .with("properties", Json.obj()
-                        .with("name", Json.obj()
-                                .with("type", "string")
-                                .with("index", "not_analyzed")
-                        )
-                )).toCompletableFuture().get();
+        CompletionStage<JsValue> mappingCreation = elasticClient.createMapping(INDEX, "test", Json.obj(
+                $("properties",
+                        $("name", Json.obj(
+                                $("type", "string"),
+                                $("index", "not_analyzed")
+                        ))
+                )
+        ));
+        mappingCreation.toCompletableFuture().get();
 
         JsValue index = elasticClient.getIndex(INDEX).toCompletableFuture().get();
         String type = index.asObject()
@@ -116,7 +121,8 @@ public class ElasticTest {
     @Test
     public void index_data_should_work() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
-        IndexResponse indexResponse = elasticClient.index(INDEX, TYPE, Json.obj().with("name", "Jean Claude Dus"), Option.some("1")).toCompletableFuture().get();
+        CompletionStage<IndexResponse> indexResult = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1"));
+        IndexResponse indexResponse = indexResult.toCompletableFuture().get();
 
         assertThat(indexResponse.created).isTrue();
         assertThat(indexResponse._id).isEqualTo("1");
@@ -131,14 +137,15 @@ public class ElasticTest {
     @Test
     public void search_data_should_work() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
-        IndexResponse indexResponse = elasticClient.index(INDEX, TYPE, Json.obj().with("name", "Jean Claude Dus"), Option.some("1")).toCompletableFuture().get();
+        IndexResponse indexResponse = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1")).toCompletableFuture().get();
 
         elasticClient.refresh().toCompletableFuture().get();
 
         assertThat(indexResponse.created).isTrue();
         assertThat(indexResponse._id).isEqualTo("1");
 
-        SearchResponse searchResponse = elasticClient.search(INDEX, TYPE, Json.obj().with("query", Json.obj().with("match_all", Json.obj()))).toCompletableFuture().get();
+        CompletionStage<SearchResponse> search = elasticClient.search(INDEX, TYPE, Json.obj($("query", $("match_all", Json.obj()))));
+        SearchResponse searchResponse = search.toCompletableFuture().get();
         assertThat(searchResponse.hits.total).isEqualTo(1);
         javaslang.collection.List<Person> people = searchResponse.hits.hitsAs(Person.read);
         ElasticTest.Person person = people.head();
