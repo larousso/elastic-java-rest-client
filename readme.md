@@ -1,4 +1,4 @@
-#Elastic java client
+# Elastic java client
 
 ## Installation 
 
