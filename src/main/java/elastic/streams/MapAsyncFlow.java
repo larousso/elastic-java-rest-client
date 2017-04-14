@@ -7,6 +7,8 @@ import akka.stream.FlowShape;
 import akka.stream.Inlet;
 import akka.stream.Outlet;
 import akka.stream.stage.*;
+import javaslang.Tuple2;
+import javaslang.collection.List;
 import javaslang.control.Option;
 
 import java.util.concurrent.CompletionStage;
@@ -37,46 +39,74 @@ public class MapAsyncFlow<I, O> extends GraphStage<FlowShape<I, O>> {
     public GraphStageLogic createLogic(Attributes inheritedAttributes) {
         return new GraphStageLogic(shape) {
 
+            List<I> buffer = List.empty();
             Option<O> fValue = Option.none();
-            Boolean isCalled = false;
+            Boolean completeStream = false;
 
             AsyncCallback<O> successCb = createAsyncCallback(param -> {
-                    if(isAvailable(out)) {
-                        push(out, param);
-                    } else {
-                        fValue = Option.some(param);
-                    }
-                    isCalled = false;
+                if(isAvailable(out)) {
+                    push(out, param);
+                } else {
+                    fValue = Option.some(param);
+                }
+                if(completeStream) {
+                    complete(out);
+                }
+                call();
             });
 
-            AsyncCallback<Throwable> failureCb = createAsyncCallback(e ->
-                    fail(out, e)
-            );
+            AsyncCallback<Throwable> failureCb = createAsyncCallback(e ->{
+                e.printStackTrace();
+                fail(out, e);
+            });
+
+            private void call() throws Exception {
+                if(!buffer.isEmpty()) {
+                    Tuple2<I, List<I>> pop = buffer.pop2();
+                    buffer = pop._2;
+                    f.apply(pop._1).whenComplete((ok, e) -> {
+                        if(e != null) {
+                            failureCb.invoke(e);
+                        } else {
+                            successCb.invoke(ok);
+                        }
+                    });
+                }
+            }
+
+            private void pushTmp() {
+                fValue.forEach(v -> {
+                        push(out, v);
+                });
+            }
+
             {
                 setHandler(in, new AbstractInHandler() {
                     @Override
                     public void onPush() throws Exception {
-                        isCalled = true;
-                        f.apply(grab(in)).whenComplete((ok, e) -> {
-                            if(e != null) {
-                                failureCb.invoke(e);
-                            } else {
-                                successCb.invoke(ok);
-                            }
-                        });
+                        I grab = grab(in);
+                        buffer = buffer.append(grab);
+                        call();
+                    }
+
+                    @Override
+                    public void onUpstreamFinish() throws Exception {
+                        completeStream = true;
+                        call();
                     }
                 });
                 setHandler(out, new AbstractOutHandler() {
                     @Override
                     public void onPull() throws Exception {
-                        fValue.forEach(e -> {
+                        if(!isClosed(in)) {
                             pull(in);
-                            push(out, e);
-                        });
-
+                        }
+                        call();
+                        pushTmp();
                     }
                 });
             }
+
         };
     }
 

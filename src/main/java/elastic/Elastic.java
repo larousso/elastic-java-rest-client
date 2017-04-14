@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 
+import elastic.streams.Flows;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -261,7 +262,8 @@ public class Elastic implements Closeable {
         //@formatter:off
         return Source.range(1, nbRetry)
                 .via(latencyFlow)
-                .mapAsync(1, any -> oneBulk(items))
+                .via(Flows.mapAsync(any -> oneBulk(items)))
+//                .mapAsync(1, any -> oneBulk(items))
                 .filterNot(isError)
                 .take(1)
                 .orElse(Source.lazily(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items))))
