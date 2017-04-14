@@ -263,7 +263,6 @@ public class Elastic implements Closeable {
         return Source.range(1, nbRetry)
                 .via(latencyFlow)
                 .via(Flows.mapAsync(any -> oneBulk(items)))
-//                .mapAsync(1, any -> oneBulk(items))
                 .filterNot(isError)
                 .take(1)
                 .orElse(Source.lazily(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items))))
