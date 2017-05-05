@@ -86,6 +86,10 @@ public class Elastic implements Closeable {
         this.restClient.close();
     }
 
+    public Type type(String index, String type) {
+        return new Type(this, index, type);
+    }
+
     public CompletionStage<GetResponse> get(String index, String type, String id) {
         String path = List.of(index, type, id).mkString("/");
         return request(path, "GET")
@@ -161,6 +165,12 @@ public class Elastic implements Closeable {
                 .thenCompose(handleError());
     }
 
+    public CompletionStage<JsValue> getMapping(String index, String type) {
+        String path = "/" + List.of(index, "_mapping", type).mkString("/");
+        return request(path, "GET")
+                .thenCompose(handleError());
+    }
+
     public CompletionStage<Boolean> indexExists(String name) {
         String path = "/" + name;
         return rawRequest(path, "HEAD", Option.none(), HashMap.empty()).thenApply(exists());
@@ -220,6 +230,21 @@ public class Elastic implements Closeable {
         return windows.mapAsync(parallelisation, this::oneBulk).map(p -> p._1.get());
     }
 
+
+    public Flow<BulkItem, BulkResponse, NotUsed> bulk(String index, String type, Integer batchSize, Integer parallelisation) {
+        return bulk(index, type, batchSize, null, parallelisation);
+    }
+
+    public Flow<BulkItem, BulkResponse, NotUsed> bulk(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelisation) {
+        Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
+        if(within == null) {
+            windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
+        } else {
+            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
+        }
+        return windows.mapAsync(parallelisation, i -> this.oneBulk(index, type, i)).map(p -> p._1.get());
+    }
+
     public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
         return bulkWithRetry(batchSize, null, parallelism, nbRetry, latency, retryMode);
     }
@@ -246,11 +271,45 @@ public class Elastic implements Closeable {
         return bulkWithRetry(batchSize, within, parallelism, nbRetry, latency, retryMode, defaultIsBulkOnError());
     }
 
+
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        return bulkWithRetry(index, type, batchSize, null, parallelism, nbRetry, latency, retryMode);
+    }
+
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        return bulkWithRetry(index, type, batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
+    }
+
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
+        if(within == null) {
+            windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
+        } else {
+            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
+        }
+        return windows
+                .flatMapMerge(parallelism, e ->
+                        oneBulkWithRetry(index , type, e, nbRetry, latency, retryMode, isError)
+                );
+    }
+
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        return bulkWithRetry(index, type, batchSize, within, parallelism, nbRetry, latency, retryMode, defaultIsBulkOnError());
+    }
+
     private Predicate<Tuple2<Try<BulkResponse>, Response>> defaultIsBulkOnError() {
         return pair -> pair._2.getStatusLine().getStatusCode() == 503 || pair._2.getStatusLine().getStatusCode() == 429 || pair._1.isFailure();
     }
 
     public Source<Either<BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetry(java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        return oneBulkWithRetryInternal("/_bulk", items, nbRetry, latency, retryMode, isError);
+    }
+
+    public Source<Either<BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetry(String index, String type, java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        return oneBulkWithRetryInternal("/" + index + "/" + type + "/_bulk", items, nbRetry, latency, retryMode, isError);
+    }
+
+    private Source<Either<BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetryInternal(String path, java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
         Flow<Integer, Integer, NotUsed> latencyFlow;
         if (retryMode == RetryMode.ExponentialLatency) {
             latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> i, ThrottleMode.shaping());
@@ -262,7 +321,7 @@ public class Elastic implements Closeable {
         //@formatter:off
         return Source.range(1, nbRetry)
                 .via(latencyFlow)
-                .via(Flows.mapAsync(any -> oneBulk(items)))
+                .via(Flows.mapAsync(any -> oneBulkInternal(items, path)))
                 .filterNot(isError)
                 .take(1)
                 .orElse(Source.lazily(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items))))
@@ -282,6 +341,19 @@ public class Elastic implements Closeable {
     public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
         String path = "/_bulk";
         //@formatter:off
+        return oneBulkInternal(items, path);
+        //@formatter:on
+    }
+
+
+    public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(String index, String type, java.util.List<BulkItem> items) {
+        String path = "/" + index + "/" + type + "/_bulk";
+        //@formatter:off
+        return oneBulkInternal(items, path);
+        //@formatter:on
+    }
+
+    private CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulkInternal(java.util.List<BulkItem> items, String path) {
         String bulkBody = List.ofAll(items)
                 .flatMap(i -> List.of(i.operation, i.source))
                 .filter(Objects::nonNull)
@@ -298,7 +370,6 @@ public class Elastic implements Closeable {
                     }
                 })
         );
-        //@formatter:on
     }
 
 
