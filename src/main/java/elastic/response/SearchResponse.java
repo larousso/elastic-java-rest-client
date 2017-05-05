@@ -18,7 +18,7 @@ public class SearchResponse {
                     json.field("timed_out").asOptBoolean().getOrElse(() -> null),
                     json.field("_shards"),
                     json.field("max_score").asOptInteger().getOrElse(() -> null),
-                    json.field("_scroll_id").asString(),
+                    json.field("_scroll_id").asOptString().getOrElse(() -> null),
                     json.field("hits").as(Hits.reads),
                     json.field("aggregations"),
                     json.field("acknowledged").asOptBoolean().getOrElse(() -> null),
