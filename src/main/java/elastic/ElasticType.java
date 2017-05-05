@@ -89,6 +89,10 @@ public class ElasticType {
         return elastic.forceMerge(index);
     }
 
+    public Source<SearchResponse, NotUsed> scroll(JsValue query, String scrollTime) {
+        return elastic.scroll(index, type, query, scrollTime);
+    }
+
     public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
         return elastic.oneBulk(index, type, items);
     }

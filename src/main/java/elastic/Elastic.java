@@ -265,7 +265,7 @@ public class Elastic implements Closeable {
 
 
 
-    public Source<SearchResponse, NotUsed> scroll(String index, String type, JsValue searchQuery, Integer size, String scrollTime) {
+    public Source<SearchResponse, NotUsed> scroll(String index, String type, JsValue searchQuery, String scrollTime) {
         //@formatter:off
         return Source
                 .fromCompletionStage(
