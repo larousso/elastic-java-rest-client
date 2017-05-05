@@ -6,10 +6,12 @@ import static javaslang.Patterns.*;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 
+import akka.japi.Pair;
 import elastic.streams.Flows;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -46,6 +48,8 @@ import javaslang.control.Either;
 import javaslang.control.Option;
 import javaslang.control.Try;
 import scala.concurrent.duration.FiniteDuration;
+
+import static org.reactivecouchbase.json.Syntax.*;
 
 public class Elastic implements Closeable {
 
@@ -149,7 +153,7 @@ public class Elastic implements Closeable {
                 .thenCompose(handleError());
     }
 
-    public CompletionStage<JsValue> readIndex(String name) {
+    public CompletionStage<JsValue> getIndex(String name) {
         return request("/" + name, "GET")
                 .thenCompose(handleError());
     }
@@ -165,13 +169,13 @@ public class Elastic implements Closeable {
                 .thenCompose(handleError());
     }
 
-    public CompletionStage<JsValue> readMapping(String index, String type) {
+    public CompletionStage<JsValue> getMapping(String index, String type) {
         String path = "/" + List.of(index, "_mapping", type).mkString("/");
         return request(path, "GET")
                 .thenCompose(handleError());
     }
 
-    public CompletionStage<JsValue> readSettings(String index) {
+    public CompletionStage<JsValue> getSettings(String index) {
         return request("/" + index + "/_settings", "GET")
                 .thenCompose(handleError());
     }
@@ -253,6 +257,41 @@ public class Elastic implements Closeable {
         String path = indexes.mkString("/", ",", "/") + "_forcemerge";
         return request(path, "POST").thenCompose(handleError());
     }
+
+    public CompletionStage<JsValue> reindex(JsObject reindex) {
+        String path = "/_reindex";
+        return request(path, "POST", reindex).thenCompose(handleError());
+    }
+
+
+
+    public Source<SearchResponse, NotUsed> scroll(String index, String type, JsValue searchQuery, Integer size, String scrollTime) {
+        //@formatter:off
+        return Source
+                .fromCompletionStage(
+                        request("/"+index+"/"+type+"/_search", "POST", searchQuery, HashMap.of("scroll", scrollTime)).thenCompose(convert(SearchResponse.reads))
+                )
+                .flatMapConcat(resp ->
+                    Source.single(resp).concat(Source.unfoldAsync(resp._scroll_id, id -> this.nextScroll(id, scrollTime)))
+                );
+        //@formatter:on
+    }
+
+    private CompletionStage<Optional<Pair<String, SearchResponse>>> nextScroll(String scrollId, String scrollTime) {
+        return request("/_search/scroll", "POST", Json.obj(
+                    $("scroll", scrollTime),
+                    $("scroll_id", scrollId)
+                ))
+                .thenCompose(convert(SearchResponse.reads))
+                .thenApply(response -> {
+                    if (response.hits.hits.isEmpty()) {
+                        return Optional.<Pair<String, SearchResponse>>empty();
+                    } else {
+                        return Optional.of(Pair.create(response._scroll_id, response));
+                    }
+                });
+    }
+
 
 
     public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, Integer parallelisation) {
@@ -462,27 +501,27 @@ public class Elastic implements Closeable {
         return json -> handleError().apply(json).thenCompose(fromJson(reader));
     }
 
-    private CompletionStage<JsValue> request(String path, String verb) {
+    public CompletionStage<JsValue> request(String path, String verb) {
         return request(path, verb, Option.none(), HashMap.empty()).thenApply(Tuple2::_1);
     }
 
-    private CompletionStage<JsValue> request(String path, String verb, String body) {
+    public CompletionStage<JsValue> request(String path, String verb, String body) {
         return request(path, verb, Option.of(body), HashMap.empty()).thenApply(Tuple2::_1);
     }
 
-    private CompletionStage<Tuple2<JsValue, Response>> requestWithResponse(String path, String verb, String body) {
+    public CompletionStage<Tuple2<JsValue, Response>> requestWithResponse(String path, String verb, String body) {
         return request(path, verb, Option.of(body), HashMap.empty());
     }
 
-    private CompletionStage<JsValue> request(String path, String verb, JsValue body) {
+    public CompletionStage<JsValue> request(String path, String verb, JsValue body) {
         return request(path, verb, body, HashMap.empty());
     }
 
-    private CompletionStage<JsValue> request(String path, String verb, JsValue body, HashMap<String, String> query) {
+    public CompletionStage<JsValue> request(String path, String verb, JsValue body, HashMap<String, String> query) {
         return request(path, verb, Option.of(Json.stringify(body)), query).thenApply(Tuple2::_1);
     }
 
-    private CompletionStage<Tuple2<JsValue, Response>> request(String path, String verb, Option<String> body, HashMap<String, String> query) {
+    public CompletionStage<Tuple2<JsValue, Response>> request(String path, String verb, Option<String> body, HashMap<String, String> query) {
         CompletionStage<Response> response = rawRequest(path, verb, body, query);
 
         //@formatter:off
@@ -509,7 +548,7 @@ public class Elastic implements Closeable {
         //@formatter:on
     }
 
-    private CompletionStage<Response> rawRequest(String path, String verb, Option<String> body, HashMap<String, String> query) {
+    public CompletionStage<Response> rawRequest(String path, String verb, Option<String> body, HashMap<String, String> query) {
         return body.map(b -> {
             HttpEntity entity = new NStringEntity(b, ContentType.APPLICATION_JSON);
             EsResponseListener esResponseListener = new EsResponseListener();

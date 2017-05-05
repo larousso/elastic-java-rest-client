@@ -18,6 +18,7 @@ public class SearchResponse {
                     json.field("timed_out").asOptBoolean().getOrElse(() -> null),
                     json.field("_shards"),
                     json.field("max_score").asOptInteger().getOrElse(() -> null),
+                    json.field("_scroll_id").asString(),
                     json.field("hits").as(Hits.reads),
                     json.field("aggregations"),
                     json.field("acknowledged").asOptBoolean().getOrElse(() -> null),
@@ -32,7 +33,7 @@ public class SearchResponse {
     public static final Writer<SearchResponse> writes = response -> {
         List<JsPair> jsPairs = List.of(
                 Option.of(response.took).map(n -> $("took", n)),
-                Option.of(response.took).map(n -> $("took", n)),
+                Option.of(response._scroll_id).map(n -> $("_scroll_id", n)),
                 Option.of(response.timed_out).map(n -> $("timed_out", n)),
                 Option.of(response._shards).map(n -> $("_shards", n)),
                 Option.of(response.max_score).map(n -> $("max_score", n)),
@@ -55,6 +56,8 @@ public class SearchResponse {
 
     public final Integer max_score;
 
+    public final String _scroll_id;
+
     public final Hits hits;
 
     public final JsValue aggregations;
@@ -65,11 +68,12 @@ public class SearchResponse {
 
     public final JsValue error;
 
-    public SearchResponse(Integer took, Boolean timed_out, JsValue _shards, Integer max_score, Hits hits, JsValue aggregations, Boolean acknowledged, Integer status, JsValue error) {
+    public SearchResponse(Integer took, Boolean timed_out, JsValue _shards, Integer max_score, String scroll_id, Hits hits, JsValue aggregations, Boolean acknowledged, Integer status, JsValue error) {
         this.took = took;
         this.timed_out = timed_out;
         this._shards = _shards;
         this.max_score = max_score;
+        _scroll_id = scroll_id;
         this.hits = hits;
         this.aggregations = aggregations;
         this.acknowledged = acknowledged;

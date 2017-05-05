@@ -2,7 +2,6 @@ package elastic;
 
 import java.util.concurrent.CompletionStage;
 
-import javaslang.collection.List;
 import org.elasticsearch.client.Response;
 import org.reactivecouchbase.json.JsValue;
 
@@ -34,11 +33,11 @@ public class ElasticType {
         this.type = type;
     }
 
-    public String getIndex() {
+    public String getIndexName() {
         return index;
     }
 
-    public String getType() {
+    public String getTypeName() {
         return type;
     }
 
@@ -54,16 +53,16 @@ public class ElasticType {
         return elastic.index(index, type, data, mayBeId, create, parent, refresh);
     }
 
-    public CompletionStage<JsValue> readIndex() {
-        return elastic.readIndex(index);
+    public CompletionStage<JsValue> getIndex() {
+        return elastic.getIndex(index);
     }
 
-    public CompletionStage<JsValue> readMapping() {
-        return elastic.readMapping(index, type);
+    public CompletionStage<JsValue> getMapping() {
+        return elastic.getMapping(index, type);
     }
 
-    public CompletionStage<JsValue> readSettings() {
-        return elastic.readSettings(index);
+    public CompletionStage<JsValue> getSettings() {
+        return elastic.getSettings(index);
     }
 
     public CompletionStage<JsValue> updateSettings(JsValue settings) {
