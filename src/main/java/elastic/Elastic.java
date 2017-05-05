@@ -86,8 +86,8 @@ public class Elastic implements Closeable {
         this.restClient.close();
     }
 
-    public Type type(String index, String type) {
-        return new Type(this, index, type);
+    public ElasticType type(String index, String type) {
+        return new ElasticType(this, index, type);
     }
 
     public CompletionStage<GetResponse> get(String index, String type, String id) {
@@ -149,7 +149,7 @@ public class Elastic implements Closeable {
                 .thenCompose(handleError());
     }
 
-    public CompletionStage<JsValue> getIndex(String name) {
+    public CompletionStage<JsValue> readIndex(String name) {
         return request("/" + name, "GET")
                 .thenCompose(handleError());
     }
@@ -165,9 +165,19 @@ public class Elastic implements Closeable {
                 .thenCompose(handleError());
     }
 
-    public CompletionStage<JsValue> getMapping(String index, String type) {
+    public CompletionStage<JsValue> readMapping(String index, String type) {
         String path = "/" + List.of(index, "_mapping", type).mkString("/");
         return request(path, "GET")
+                .thenCompose(handleError());
+    }
+
+    public CompletionStage<JsValue> readSettings(String index) {
+        return request("/" + index + "/_settings", "GET")
+                .thenCompose(handleError());
+    }
+
+    public CompletionStage<JsValue> updateSettings(String index, JsValue settings) {
+        return request("/" + index + "/_settings", "PUT", settings)
                 .thenCompose(handleError());
     }
 
@@ -175,6 +185,25 @@ public class Elastic implements Closeable {
         String path = "/" + name;
         return rawRequest(path, "HEAD", Option.none(), HashMap.empty()).thenApply(exists());
     }
+
+    public CompletionStage<JsValue> updateAliases(JsValue aliases) {
+        String path = "/_aliases";
+        return request(path, "POST", aliases)
+                .thenCompose(handleError());
+    }
+
+    public CompletionStage<JsValue> addAlias(String index, String aliasName) {
+        String path = "/" + index + "/_alias/" + aliasName;
+        return request(path, "PUT")
+                .thenCompose(handleError());
+    }
+
+    public CompletionStage<JsValue> deleteAlias(String index, String aliasName) {
+        String path = "/" + index + "/_alias/" + aliasName;
+        return request(path, "DELETE")
+                .thenCompose(handleError());
+    }
+
 
     public CompletionStage<Long> count() {
         return count(Option.none(), Option.none());
@@ -207,11 +236,21 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<JsValue> refresh(List<String> indexes) {
-        String path = "/";
-        if(!indexes.isEmpty()) {
-            path += indexes.mkString(",");
-        }
-        path += "/_refresh";
+        String path = indexes.mkString("/", ",", "/") + "_refresh";
+        return request(path, "POST").thenCompose(handleError());
+    }
+
+
+    public CompletionStage<JsValue> forceMerge() {
+        return forceMerge(List.empty());
+    }
+
+    public CompletionStage<JsValue> forceMerge(String index) {
+        return forceMerge(List.of(index));
+    }
+
+    public CompletionStage<JsValue> forceMerge(List<String> indexes) {
+        String path = indexes.mkString("/", ",", "/") + "_forcemerge";
         return request(path, "POST").thenCompose(handleError());
     }
 
@@ -362,13 +401,13 @@ public class Elastic implements Closeable {
                 .mkString("\n") + "\n";
         return requestWithResponse(path, "POST", bulkBody).thenCompose(p ->
                 convert(BulkResponse.reads).apply(p._1).thenApply(r -> Tuple.of(Try.success(r), p._2))
-                .exceptionally(e -> {
-                    if (e instanceof ResponseException) {
-                        return Tuple.of(Try.failure(e), ((ResponseException) e).getResponse());
-                    } else {
-                        throw new RuntimeException(e);
-                    }
-                })
+                        .exceptionally(e -> {
+                            if (e instanceof ResponseException) {
+                                return Tuple.of(Try.failure(e), ((ResponseException) e).getResponse());
+                            } else {
+                                throw new RuntimeException(e);
+                            }
+                        })
         );
     }
 
@@ -460,27 +499,27 @@ public class Elastic implements Closeable {
                     }
                 })
                 .thenApply(pair -> pair.map1(json -> {
-                        if(json == null) {
-                            return null;
-                        } else {
-                            return Json.parse(json);
-                        }
-                    })
+                            if(json == null) {
+                                return null;
+                            } else {
+                                return Json.parse(json);
+                            }
+                        })
                 );
         //@formatter:on
     }
 
     private CompletionStage<Response> rawRequest(String path, String verb, Option<String> body, HashMap<String, String> query) {
         return body.map(b -> {
-                HttpEntity entity = new NStringEntity(b, ContentType.APPLICATION_JSON);
-                EsResponseListener esResponseListener = new EsResponseListener();
-                restClient.performRequestAsync(verb, path, query.toJavaMap(), entity, esResponseListener);
-                return esResponseListener.promise;
-            }).getOrElse(() -> {
-                EsResponseListener esResponseListener = new EsResponseListener();
-                restClient.performRequestAsync(verb, path, query.toJavaMap(), esResponseListener);
-                return esResponseListener.promise;
-            });
+            HttpEntity entity = new NStringEntity(b, ContentType.APPLICATION_JSON);
+            EsResponseListener esResponseListener = new EsResponseListener();
+            restClient.performRequestAsync(verb, path, query.toJavaMap(), entity, esResponseListener);
+            return esResponseListener.promise;
+        }).getOrElse(() -> {
+            EsResponseListener esResponseListener = new EsResponseListener();
+            restClient.performRequestAsync(verb, path, query.toJavaMap(), esResponseListener);
+            return esResponseListener.promise;
+        });
     }
 
     private static <T> CompletionStage<T> success(T e) {

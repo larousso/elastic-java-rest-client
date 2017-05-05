@@ -2,6 +2,7 @@ package elastic;
 
 import java.util.concurrent.CompletionStage;
 
+import javaslang.collection.List;
 import org.elasticsearch.client.Response;
 import org.reactivecouchbase.json.JsValue;
 
@@ -19,10 +20,7 @@ import javaslang.control.Option;
 import javaslang.control.Try;
 import scala.concurrent.duration.FiniteDuration;
 
-/**
- * Created by 97306p on 05/05/2017.
- */
-public class Type {
+public class ElasticType {
 
     private final Elastic elastic;
 
@@ -30,10 +28,18 @@ public class Type {
 
     private final String type;
 
-    Type(Elastic elastic, String index, String type) {
+    ElasticType(Elastic elastic, String index, String type) {
         this.elastic = elastic;
         this.index = index;
         this.type = type;
+    }
+
+    public String getIndex() {
+        return index;
+    }
+
+    public String getType() {
+        return type;
     }
 
     public CompletionStage<SearchResponse> search(JsValue query) {
@@ -48,12 +54,28 @@ public class Type {
         return elastic.index(index, type, data, mayBeId, create, parent, refresh);
     }
 
-    public CompletionStage<JsValue> getIndex() {
-        return elastic.getIndex(index);
+    public CompletionStage<JsValue> readIndex() {
+        return elastic.readIndex(index);
     }
 
-    public CompletionStage<JsValue> getMapping() {
-        return elastic.getMapping(index, type);
+    public CompletionStage<JsValue> readMapping() {
+        return elastic.readMapping(index, type);
+    }
+
+    public CompletionStage<JsValue> readSettings() {
+        return elastic.readSettings(index);
+    }
+
+    public CompletionStage<JsValue> updateSettings(JsValue settings) {
+        return elastic.updateSettings(index, settings);
+    }
+
+    public CompletionStage<JsValue> addAlias(String name) {
+        return elastic.addAlias(index, name);
+    }
+
+    public CompletionStage<JsValue> deleteAlias(String name) {
+        return elastic.addAlias(index, name);
     }
 
     public CompletionStage<Long> count() {
@@ -62,6 +84,10 @@ public class Type {
 
     public CompletionStage<JsValue> refresh() {
         return elastic.refresh(index);
+    }
+
+    public CompletionStage<JsValue> forceMerge() {
+        return elastic.forceMerge(index);
     }
 
     public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
@@ -73,7 +99,7 @@ public class Type {
     }
 
     public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, FiniteDuration within, Integer parallelisation) {
-       return elastic.bulk(index, type, batchSize, within, parallelisation);
+        return elastic.bulk(index, type, batchSize, within, parallelisation);
     }
 
     public Source<Either<Elastic.BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetry(java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, Elastic.RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
@@ -96,5 +122,11 @@ public class Type {
         return elastic.bulkWithRetry(index, type, batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
     }
 
+    public CompletionStage<JsValue> deleteIndex() {
+        return elastic.deleteIndex(index);
+    }
 
+    public Elastic getElastic() {
+        return elastic;
+    }
 }
