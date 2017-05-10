@@ -2,6 +2,9 @@ package elastic;
 
 import java.util.concurrent.CompletionStage;
 
+import javaslang.collection.HashMap;
+import javaslang.collection.List;
+import javaslang.collection.Map;
 import org.elasticsearch.client.Response;
 import org.reactivecouchbase.json.JsValue;
 
@@ -45,7 +48,7 @@ public class ElasticType {
         return elastic.search(index, type, query);
     }
 
-    public CompletionStage<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId) {
+    public CompletionStage<IndexResponse> index(JsValue data, Option<String> mayBeId) {
         return elastic.index(index, type, data, mayBeId);
     }
 
@@ -69,12 +72,24 @@ public class ElasticType {
         return elastic.updateSettings(index, settings);
     }
 
+    public CompletionStage<JsValue> getAliases() {
+        return elastic.getAliases(index);
+    }
+
     public CompletionStage<JsValue> addAlias(String name) {
         return elastic.addAlias(index, name);
     }
 
     public CompletionStage<JsValue> deleteAlias(String name) {
         return elastic.addAlias(index, name);
+    }
+
+    public CompletionStage<JsValue> health() {
+        return elastic.health(List.of(index), HashMap.empty());
+    }
+
+    public CompletionStage<JsValue> health(Map<String, String> querys) {
+        return elastic.health(List.of(index), querys);
     }
 
     public CompletionStage<Long> count() {

@@ -16,6 +16,7 @@ import java.util.UUID;
 import javaslang.control.Try;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.index.reindex.ReindexPlugin;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.internal.InternalSettingsPreparer;
 import org.elasticsearch.plugins.Plugin;
@@ -49,7 +50,7 @@ public class NodeStarter {
                     .put("transport.type", "netty4")
                     .put("http.type", "netty4")
                     .build(),
-                Arrays.asList(Netty4Plugin.class)
+                Arrays.asList(Netty4Plugin.class, ReindexPlugin.class)
         );
 
         Try.of(() ->
