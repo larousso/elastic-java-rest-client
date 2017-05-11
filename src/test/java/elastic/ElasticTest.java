@@ -60,7 +60,7 @@ public class ElasticTest {
 	@Before
 	public void cleanUpIndices() {
 		try {
-			elasticClient.deleteIndex(INDEX).toCompletableFuture().get();
+			elasticClient.deleteIndex(INDEX+"*").toCompletableFuture().get();
 		} catch (Exception e) {
 		}
 	}
@@ -84,6 +84,7 @@ public class ElasticTest {
 				.field("name").asObject().field("type").asString();
 		assertThat(type).isIn("string", "keyword");
 	}
+
 
 	@Test
 	public void mapping_creation_should_work() throws ExecutionException, InterruptedException {
@@ -218,7 +219,7 @@ public class ElasticTest {
 	@Test
     public void get_mapping() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
-        JsValue jsValue = elasticClient.getSettings(INDEX).toCompletableFuture().get();
+        JsValue jsValue = elasticClient.getMapping(INDEX, TYPE).toCompletableFuture().get();
         assertThat(jsValue).isEqualTo(Json.obj(
                 $("test",
                         $("mappings",

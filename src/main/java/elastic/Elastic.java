@@ -95,7 +95,7 @@ public class Elastic implements Closeable {
 
     public CompletionStage<GetResponse> get(String index, String type, String id) {
         String path = List.of(index, type, id).mkString("/");
-        return request(path, "GET")
+        return get(path)
                 .thenCompose(convert(GetResponse.reads));
     }
 
@@ -113,7 +113,7 @@ public class Elastic implements Closeable {
 
     public CompletionStage<SearchResponse> search(Option<String> index, Option<String> type, JsValue query) {
         String path = "/" + List.of(index, type, Option.of("_search")).flatMap(identity()).mkString("/");
-        return request(path, "POST", query)
+        return post(path, query)
                 .thenCompose(convert(SearchResponse.reads));
     }
 
@@ -138,9 +138,9 @@ public class Elastic implements Closeable {
                     if(Boolean.TRUE.equals(create)) {
                         p = p + "_create";
                     }
-                    return request(basePath + "/" + id, "PUT", data, queryMap);
+                    return put(basePath + "/" + id, data, queryMap);
                 }),
-                Case(None(), any -> request(basePath, "POST", data, queryMap))
+                Case(None(), any -> post(basePath, data, queryMap))
         )
                 .thenCompose(convert(IndexResponse.reads));
         //@formatter:on
@@ -148,76 +148,81 @@ public class Elastic implements Closeable {
 
 
     public CompletionStage<JsValue> createIndex(String name, JsValue settings) {
-        return request("/" + name, "PUT", settings)
+        return put("/" + name, settings)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> getIndex(String name) {
-        return request("/" + name, "GET")
+        return get("/" + name)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> deleteIndex(String name) {
-        return request("/" + name, "DELETE")
+        return delete("/" + name)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> createMapping(String index, String type, JsValue mapping) {
         String path = "/" + List.of(index, "_mapping", type).mkString("/");
-        return request(path, "PUT", mapping)
+        return put(path, mapping)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> getMapping(String index, String type) {
         String path = "/" + List.of(index, "_mapping", type).mkString("/");
-        return request(path, "GET")
+        return get(path)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> getSettings(String index) {
-        return request("/" + index + "/_settings", "GET")
+        return get("/" + index + "/_settings")
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> updateSettings(String index, JsValue settings) {
-        return request("/" + index + "/_settings", "PUT", settings)
+        return put("/" + index + "/_settings", settings)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<Boolean> indexExists(String name) {
         String path = "/" + name;
-        return rawRequest(path, "HEAD", Option.none(), HashMap.empty()).thenApply(exists());
+        return head(path).thenApply(exists());
+    }
+
+    public CompletionStage<Boolean> mappingExists(String index, String type) {
+        String path = "/" + index + "/_mapping/" + type;
+        return head(path).thenApply(exists());
     }
 
 
     public CompletionStage<JsValue> getAliases() {
         String path = "/_alias";
-        return request(path, "GET")
+        return get(path)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> getAliases(String index) {
         String path = "/" + index + "/_alias";
-        return request(path, "GET")
+        return get(path)
                 .thenCompose(handleError());
     }
 
 
     public CompletionStage<JsValue> updateAliases(JsValue aliases) {
         String path = "/_aliases";
-        return request(path, "POST", aliases)
+        return post(path, aliases)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> addAlias(String index, String aliasName) {
         String path = "/" + index + "/_alias/" + aliasName;
-        return request(path, "PUT")
+        return put(path)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> deleteAlias(String index, String aliasName) {
         String path = "/" + index + "/_alias/" + aliasName;
-        return request(path, "DELETE")
+        return delete(path)
                 .thenCompose(handleError());
     }
 
@@ -231,8 +236,7 @@ public class Elastic implements Closeable {
 
     public CompletionStage<JsValue> health(List<String> indices, Map<String, String> querys) {
         String path = "/_cluster/health" + indices.mkString("/", ",", "");
-        return request(path, "GET", Option.none(), querys)
-                .thenApply(Tuple2::_1)
+        return get(path, querys)
                 .thenCompose(handleError());
     }
 
@@ -287,7 +291,7 @@ public class Elastic implements Closeable {
 
     public CompletionStage<JsValue> refresh(List<String> indexes) {
         String path = indexes.mkString("/", ",", "/") + "_refresh";
-        return request(path, "POST").thenCompose(handleError());
+        return post(path).thenCompose(handleError());
     }
 
 
@@ -301,12 +305,12 @@ public class Elastic implements Closeable {
 
     public CompletionStage<JsValue> forceMerge(List<String> indexes) {
         String path = indexes.mkString("/", ",", "/") + "_forcemerge";
-        return request(path, "POST").thenCompose(handleError());
+        return post(path).thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> reindex(JsObject reindex) {
         String path = "/_reindex";
-        return request(path, "POST", reindex).thenCompose(handleError());
+        return post(path, reindex).thenCompose(handleError());
     }
 
 
@@ -314,7 +318,7 @@ public class Elastic implements Closeable {
         //@formatter:off
         return Source
                 .fromCompletionStage(
-                        request("/"+index+"/"+type+"/_search", "POST", searchQuery, HashMap.of("scroll", scrollTime)).thenCompose(convert(SearchResponse.reads))
+                        post("/"+index+"/"+type+"/_search", searchQuery, HashMap.of("scroll", scrollTime)).thenCompose(convert(SearchResponse.reads))
                 )
                 .flatMapConcat(resp ->
                     Source.single(resp).concat(Source.unfoldAsync(resp._scroll_id, id -> this.nextScroll(id, scrollTime)))
@@ -323,7 +327,7 @@ public class Elastic implements Closeable {
     }
 
     private CompletionStage<Optional<Pair<String, SearchResponse>>> nextScroll(String scrollId, String scrollTime) {
-        return request("/_search/scroll", "POST", Json.obj(
+        return post("/_search/scroll", Json.obj(
                     $("scroll", scrollTime),
                     $("scroll_id", scrollId)
                 ))
@@ -497,7 +501,7 @@ public class Elastic implements Closeable {
 
 
     public CompletionStage<Boolean> templateExists(String name) {
-        return rawRequest("/_template/" + name, "HEAD", Option.none(), HashMap.empty())
+        return head("/_template/" + name)
                 .thenApply(exists());
     }
 
@@ -512,15 +516,15 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<JsValue> getTemplate(String... name) {
-        return request("/_template/" + List.of(name).mkString(","), "GET");
+        return get("/_template/" + List.of(name).mkString(","));
     }
 
     public CompletionStage<JsValue> createTemplate(String name, JsValue template) {
-        return request("/_template/" + name, "PUT", template);
+        return put("/_template/" + name, template);
     }
 
     public CompletionStage<JsValue> deleteTemplate(String name) {
-        return request("/_template/" + name, "DELETE");
+        return delete("/_template/" + name);
     }
 
     private <T> Function<JsValue, CompletionStage<T>> fromJson(Reader<T> reader) {
@@ -546,24 +550,78 @@ public class Elastic implements Closeable {
         return json -> handleError().apply(json).thenCompose(fromJson(reader));
     }
 
-    public CompletionStage<JsValue> request(String path, String verb) {
-        return request(path, verb, Option.none(), HashMap.empty()).thenApply(Tuple2::_1);
-    }
-
-    public CompletionStage<JsValue> request(String path, String verb, String body) {
-        return request(path, verb, Option.of(body), HashMap.empty()).thenApply(Tuple2::_1);
-    }
-
     public CompletionStage<Tuple2<JsValue, Response>> requestWithResponse(String path, String verb, String body) {
         return request(path, verb, Option.of(body), HashMap.empty());
     }
 
-    public CompletionStage<JsValue> request(String path, String verb, JsValue body) {
-        return request(path, verb, body, HashMap.empty());
+    public CompletionStage<Response> head(String path) {
+        return head(path, HashMap.empty());
+    }
+    public CompletionStage<Response> head(String path, Map<String, String> query) {
+        return rawRequest(path, "HEAD", Option.none(), query);
     }
 
-    public CompletionStage<JsValue> request(String path, String verb, JsValue body, Map<String, String> query) {
-        return request(path, verb, Option.of(Json.stringify(body)), query).thenApply(Tuple2::_1);
+    public CompletionStage<JsValue> get(String path) {
+        return get(path, HashMap.empty());
+    }
+    public CompletionStage<JsValue> get(String path, Map<String, String> query) {
+        return request(path, "GET", Option.none(), query).thenApply(Tuple2::_1);
+    }
+
+    public CompletionStage<JsValue> delete(String path) {
+        return delete(path, HashMap.empty());
+    }
+
+    public CompletionStage<JsValue> delete(String path, Map<String, String> query) {
+        return request(path, "DELETE", Option.none(), query).thenApply(Tuple2::_1);
+    }
+
+    public CompletionStage<JsValue> post(String path, JsValue body, Map<String, String> query) {
+        return post(path, Option.of(Json.stringify(body)), query);
+    }
+
+    public CompletionStage<JsValue> post(String path, JsValue body) {
+        return post(path, Option.of(Json.stringify(body)), HashMap.empty());
+    }
+
+    public CompletionStage<JsValue> post(String path) {
+        return post(path, Option.none(), HashMap.empty());
+    }
+
+    public CompletionStage<JsValue> post(String path, Map<String, String> query) {
+        return post(path, Option.none(), query);
+    }
+
+    public CompletionStage<JsValue> post(String path, String body, Map<String, String> query) {
+        return post(path, Option.of(body), query);
+    }
+
+    public CompletionStage<JsValue> post(String path, Option<String> body, Map<String, String> query) {
+        return request(path, "POST", body, query).thenApply(Tuple2::_1);
+    }
+
+    public CompletionStage<JsValue> put(String path, JsValue body) {
+        return put(path, Option.of(Json.stringify(body)), HashMap.empty());
+    }
+
+    public CompletionStage<JsValue> put(String path, JsValue body, Map<String, String> query) {
+        return put(path, Option.of(Json.stringify(body)), query);
+    }
+
+    public CompletionStage<JsValue> put(String path) {
+        return put(path, Option.none(), HashMap.empty());
+    }
+
+    public CompletionStage<JsValue> put(String path, Map<String, String> query) {
+        return put(path, Option.none(), query);
+    }
+
+    public CompletionStage<JsValue> put(String path, String body, Map<String, String> query) {
+        return put(path, Option.of(body), query);
+    }
+
+    public CompletionStage<JsValue> put(String path, Option<String> body, Map<String, String> query) {
+        return request(path, "PUT", body, query).thenApply(Tuple2::_1);
     }
 
     public CompletionStage<Tuple2<JsValue, Response>> request(String path, String verb, Option<String> body, Map<String, String> query) {
