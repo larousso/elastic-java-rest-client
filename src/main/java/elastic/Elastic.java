@@ -94,34 +94,50 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<GetResponse> get(String index, String type, String id) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
+        Objects.requireNonNull(id, "Id is null");
         String path = List.of(index, type, id).mkString("/");
         return get(path)
                 .thenCompose(convert(GetResponse.reads));
     }
 
     public CompletionStage<SearchResponse> search(JsValue query) {
+        Objects.requireNonNull(query, "Query is null");
         return search(Option.none(), Option.none(), query);
     }
 
     public CompletionStage<SearchResponse> search(String index, JsValue query) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(query, "Query is null");
         return search(Option.of(index), Option.none(), query);
     }
 
     public CompletionStage<SearchResponse> search(String index, String type, JsValue query) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
+        Objects.requireNonNull(query, "Query is null");
         return search(Option.of(index), Option.of(type), query);
     }
 
     public CompletionStage<SearchResponse> search(Option<String> index, Option<String> type, JsValue query) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
+        Objects.requireNonNull(query, "Query is null");
         String path = "/" + List.of(index, type, Option.of("_search")).flatMap(identity()).mkString("/");
         return post(path, query)
                 .thenCompose(convert(SearchResponse.reads));
     }
 
     public CompletionStage<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId) {
-        return index(index, type, data, mayBeId, null, null, null);
+        return index(index, type, data, mayBeId, Boolean.FALSE, null, null);
     }
 
     public CompletionStage<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
+        Objects.requireNonNull(data, "Data is null");
+        Objects.requireNonNull(mayBeId, "Id is null");
         //@formatter:off
         String basePath = "/" + index + "/" + type;
 
@@ -138,7 +154,7 @@ public class Elastic implements Closeable {
                     if(Boolean.TRUE.equals(create)) {
                         p = p + "_create";
                     }
-                    return put(basePath + "/" + id, data, queryMap);
+                    return put(p + "/" + id, data, queryMap);
                 }),
                 Case(None(), any -> post(basePath, data, queryMap))
         )
@@ -147,49 +163,64 @@ public class Elastic implements Closeable {
     }
 
 
-    public CompletionStage<JsValue> createIndex(String name, JsValue settings) {
-        return put("/" + name, settings)
+    public CompletionStage<JsValue> createIndex(String index, JsValue settings) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(settings, "Settings is null");
+        return put("/" + index, settings)
                 .thenCompose(handleError());
     }
 
-    public CompletionStage<JsValue> getIndex(String name) {
-        return get("/" + name)
+    public CompletionStage<JsValue> getIndex(String index) {
+        Objects.requireNonNull(index, "Index is null");
+        return get("/" + index)
                 .thenCompose(handleError());
     }
 
-    public CompletionStage<JsValue> deleteIndex(String name) {
-        return delete("/" + name)
+    public CompletionStage<JsValue> deleteIndex(String index) {
+        Objects.requireNonNull(index, "Index is null");
+        return delete("/" + index)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> createMapping(String index, String type, JsValue mapping) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
+        Objects.requireNonNull(mapping, "Mapping is null");
         String path = "/" + List.of(index, "_mapping", type).mkString("/");
         return put(path, mapping)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> getMapping(String index, String type) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
         String path = "/" + List.of(index, "_mapping", type).mkString("/");
         return get(path)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> getSettings(String index) {
+        Objects.requireNonNull(index, "Index is null");
         return get("/" + index + "/_settings")
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> updateSettings(String index, JsValue settings) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(settings, "Settings is null");
         return put("/" + index + "/_settings", settings)
                 .thenCompose(handleError());
     }
 
-    public CompletionStage<Boolean> indexExists(String name) {
-        String path = "/" + name;
+    public CompletionStage<Boolean> indexExists(String index) {
+        Objects.requireNonNull(index, "Index is null");
+        String path = "/" + index;
         return head(path).thenApply(exists());
     }
 
     public CompletionStage<Boolean> mappingExists(String index, String type) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
         String path = "/" + index + "/_mapping/" + type;
         return head(path).thenApply(exists());
     }
@@ -202,6 +233,7 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<JsValue> getAliases(String index) {
+        Objects.requireNonNull(index, "Index is null");
         String path = "/" + index + "/_alias";
         return get(path)
                 .thenCompose(handleError());
@@ -209,18 +241,23 @@ public class Elastic implements Closeable {
 
 
     public CompletionStage<JsValue> updateAliases(JsValue aliases) {
+        Objects.requireNonNull(aliases, "Aliases is null");
         String path = "/_aliases";
         return post(path, aliases)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> addAlias(String index, String aliasName) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(aliasName, "Alias name is null");
         String path = "/" + index + "/_alias/" + aliasName;
         return put(path)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> deleteAlias(String index, String aliasName) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(aliasName, "Alias name is null");
         String path = "/" + index + "/_alias/" + aliasName;
         return delete(path)
                 .thenCompose(handleError());
@@ -235,12 +272,15 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<JsValue> health(List<String> indices, Map<String, String> querys) {
+        Objects.requireNonNull(indices, "Indices name is null");
+        Objects.requireNonNull(querys, "Querys name is null");
         String path = "/_cluster/health" + indices.mkString("/", ",", "");
         return get(path, querys)
                 .thenCompose(handleError());
     }
 
     public CompletionStage<List<Map<String, String>>> cat(String operation) {
+        Objects.requireNonNull(operation, "Operation name is null");
         return rawRequest("/_cat/" + operation, "GET", Option.none(), HashMap.of("v", ""))
                 .thenCompose(this::readEntityAsString)
                 .thenApply(Tuple2::_1)
@@ -264,14 +304,19 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<Long> count(String index) {
+        Objects.requireNonNull(index, "Index is null");
         return count(Option.of(index), Option.none());
     }
 
     public CompletionStage<Long> count(String index, String type) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
         return count(Option.of(index), Option.of(type));
     }
 
     public CompletionStage<Long> count(Option<String> index, Option<String> type) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
         return search(index, type, Json.obj()
                 .with("size", 0)
                 .with("query", Json.obj()
@@ -286,11 +331,13 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<JsValue> refresh(String index) {
+        Objects.requireNonNull(index, "Index is null");
         return refresh(List.of(index));
     }
 
-    public CompletionStage<JsValue> refresh(List<String> indexes) {
-        String path = indexes.mkString("/", ",", "/") + "_refresh";
+    public CompletionStage<JsValue> refresh(List<String> indices) {
+        Objects.requireNonNull(indices, "Indices is null");
+        String path = indices.mkString("/", ",", "/") + "_refresh";
         return post(path).thenCompose(handleError());
     }
 
@@ -300,37 +347,44 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<JsValue> forceMerge(String index) {
+        Objects.requireNonNull(index, "Index is null");
         return forceMerge(List.of(index));
     }
 
-    public CompletionStage<JsValue> forceMerge(List<String> indexes) {
-        String path = indexes.mkString("/", ",", "/") + "_forcemerge";
+    public CompletionStage<JsValue> forceMerge(List<String> indices) {
+        Objects.requireNonNull(indices, "Indices is null");
+        String path = indices.mkString("/", ",", "/") + "_forcemerge";
         return post(path).thenCompose(handleError());
     }
 
     public CompletionStage<JsValue> reindex(JsObject reindex) {
+        Objects.requireNonNull(reindex, "Reindex is null");
         String path = "/_reindex";
         return post(path, reindex).thenCompose(handleError());
     }
 
 
     public Source<SearchResponse, NotUsed> scroll(String index, String type, JsValue searchQuery, String scrollTime) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
+        Objects.requireNonNull(searchQuery, "searchQuery is null");
+        Objects.requireNonNull(scrollTime, "scrollTime is null");
         //@formatter:off
         return Source
                 .fromCompletionStage(
                         post("/"+index+"/"+type+"/_search", searchQuery, HashMap.of("scroll", scrollTime)).thenCompose(convert(SearchResponse.reads))
                 )
                 .flatMapConcat(resp ->
-                    Source.single(resp).concat(Source.unfoldAsync(resp._scroll_id, id -> this.nextScroll(id, scrollTime)))
+                        Source.single(resp).concat(Source.unfoldAsync(resp._scroll_id, id -> this.nextScroll(id, scrollTime)))
                 );
         //@formatter:on
     }
 
     private CompletionStage<Optional<Pair<String, SearchResponse>>> nextScroll(String scrollId, String scrollTime) {
         return post("/_search/scroll", Json.obj(
-                    $("scroll", scrollTime),
-                    $("scroll_id", scrollId)
-                ))
+                $("scroll", scrollTime),
+                $("scroll_id", scrollId)
+        ))
                 .thenCompose(convert(SearchResponse.reads))
                 .thenApply(response -> {
                     if (response.hits.hits.isEmpty()) {
@@ -348,6 +402,8 @@ public class Elastic implements Closeable {
     }
 
     public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, FiniteDuration within, Integer parallelisation) {
+        Objects.requireNonNull(batchSize, "batchSize is null");
+        Objects.requireNonNull(parallelisation, "parallelisation is null");
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
@@ -363,6 +419,10 @@ public class Elastic implements Closeable {
     }
 
     public Flow<BulkItem, BulkResponse, NotUsed> bulk(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelisation) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
+        Objects.requireNonNull(batchSize, "batchSize is null");
+        Objects.requireNonNull(parallelisation, "parallelisation is null");
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
@@ -382,6 +442,13 @@ public class Elastic implements Closeable {
 
 
     public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        Objects.requireNonNull(batchSize, "batchSize is null");
+        Objects.requireNonNull(parallelism, "parallelism is null");
+        Objects.requireNonNull(nbRetry, "nbRetry is null");
+        Objects.requireNonNull(latency, "latency is null");
+        Objects.requireNonNull(retryMode, "retryMode is null");
+        Objects.requireNonNull(isError, "isError is null");
+
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
@@ -408,6 +475,15 @@ public class Elastic implements Closeable {
     }
 
     public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        Objects.requireNonNull(index, "index is null");
+        Objects.requireNonNull(type, "type is null");
+        Objects.requireNonNull(batchSize, "batchSize is null");
+        Objects.requireNonNull(parallelism, "parallelism is null");
+        Objects.requireNonNull(nbRetry, "nbRetry is null");
+        Objects.requireNonNull(latency, "latency is null");
+        Objects.requireNonNull(retryMode, "retryMode is null");
+        Objects.requireNonNull(isError, "isError is null");
+
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
@@ -437,6 +513,11 @@ public class Elastic implements Closeable {
     }
 
     private Source<Either<BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetryInternal(String path, java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        Objects.requireNonNull(nbRetry, "nbRetry is null");
+        Objects.requireNonNull(latency, "latency is null");
+        Objects.requireNonNull(retryMode, "retryMode is null");
+        Objects.requireNonNull(isError, "isError is null");
+
         Flow<Integer, Integer, NotUsed> latencyFlow;
         if (retryMode == RetryMode.ExponentialLatency) {
             latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> i, ThrottleMode.shaping());
@@ -500,8 +581,9 @@ public class Elastic implements Closeable {
     }
 
 
-    public CompletionStage<Boolean> templateExists(String name) {
-        return head("/_template/" + name)
+    public CompletionStage<Boolean> templateExists(String index) {
+        Objects.requireNonNull(index, "index is null");
+        return head("/_template/" + index)
                 .thenApply(exists());
     }
 
@@ -516,14 +598,18 @@ public class Elastic implements Closeable {
     }
 
     public CompletionStage<JsValue> getTemplate(String... name) {
+        Objects.requireNonNull(name, "name is null");
         return get("/_template/" + List.of(name).mkString(","));
     }
 
     public CompletionStage<JsValue> createTemplate(String name, JsValue template) {
+        Objects.requireNonNull(name, "name is null");
+        Objects.requireNonNull(template, "template is null");
         return put("/_template/" + name, template);
     }
 
     public CompletionStage<JsValue> deleteTemplate(String name) {
+        Objects.requireNonNull(name, "name is null");
         return delete("/_template/" + name);
     }
 

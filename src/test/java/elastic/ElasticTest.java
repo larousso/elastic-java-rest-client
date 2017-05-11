@@ -315,6 +315,14 @@ public class ElasticTest {
 	}
 
 	@Test
+	public void health() throws ExecutionException, InterruptedException {
+		createIndexWithMapping();
+		JsValue health = elasticClient.health().toCompletableFuture().get();
+		assertThat(health.field("cluster_name").asString()).isEqualTo("elasticsearch");
+	}
+
+
+	@Test
 	public void aliases() throws ExecutionException, InterruptedException  {
 		createIndexWithMapping();
 
