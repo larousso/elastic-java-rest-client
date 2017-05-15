@@ -154,7 +154,7 @@ public class Elastic implements Closeable {
                     if(Boolean.TRUE.equals(create)) {
                         p = p + "_create";
                     }
-                    return put(p + "/" + id, data, queryMap);
+                    return put(p, data, queryMap);
                 }),
                 Case(None(), any -> post(basePath, data, queryMap))
         )
