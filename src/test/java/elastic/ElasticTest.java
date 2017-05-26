@@ -90,18 +90,30 @@ public class ElasticTest {
 	public void mapping_creation_should_work() throws ExecutionException, InterruptedException {
 		Boolean exists = elasticClient.indexExists(INDEX).toCompletableFuture().get();
 		assertThat(exists).isFalse();
+		Boolean mappingExists = elasticClient.mappingExists(INDEX, TYPE).toCompletableFuture().get();
+		assertThat(mappingExists).isFalse();
 		CompletionStage<JsValue> indexCreationResponse = elasticClient.createIndex(INDEX, Json.obj());
 		indexCreationResponse.toCompletableFuture().get();
 
 		assertThat(elasticClient.indexExists(INDEX).toCompletableFuture().get()).isTrue();
-		CompletionStage<JsValue> mappingCreation = elasticClient.createMapping(INDEX, "test",
+		CompletionStage<JsValue> mappingCreation = elasticClient.createMapping(INDEX, TYPE,
 				Json.obj($("properties", $("name", Json.obj($("type", "string"), $("index", "not_analyzed"))))));
 		mappingCreation.toCompletableFuture().get();
 
+        assertThat(elasticClient.mappingExists(INDEX, TYPE).toCompletableFuture().get()).isTrue();
+
 		JsValue index = elasticClient.getIndex(INDEX).toCompletableFuture().get();
-		String type = index.asObject().field("test").asObject().field("mappings").asObject().field("test").asObject().field("properties").asObject()
-				.field("name").asObject().field("type").asString();
+		String type = index
+				.field(TYPE)
+				.field("mappings")
+				.field("test")
+				.field("properties")
+				.field("name").field("type").asString();
 		assertThat(type).isIn("string", "keyword");
+
+		JsValue mapping = elasticClient.getMapping(INDEX, TYPE).toCompletableFuture().get();
+
+		assertThat(mapping.field(INDEX).field("mappings")).isEqualTo(index.field(INDEX).field("mappings"));
 	}
 
 	@Test

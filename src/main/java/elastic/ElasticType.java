@@ -56,6 +56,10 @@ public class ElasticType {
         return elastic.index(index, type, data, mayBeId, create, parent, refresh);
     }
 
+    public CompletionStage<JsValue> delete(String id) {
+        return elastic.delete(index, type, id);
+    }
+
     public CompletionStage<JsValue> getIndex() {
         return elastic.getIndex(index);
     }

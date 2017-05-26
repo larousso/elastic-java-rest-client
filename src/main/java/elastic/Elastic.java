@@ -163,6 +163,14 @@ public class Elastic implements Closeable {
     }
 
 
+    public CompletionStage<JsValue> delete(String index, String type, String id) {
+        Objects.requireNonNull(index, "Index is null");
+        Objects.requireNonNull(type, "Type is null");
+        Objects.requireNonNull(id, "id is null");
+        return delete("/" + index  + "/" + type + "/" + id);
+    }
+
+
     public CompletionStage<JsValue> createIndex(String index, JsValue settings) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(settings, "Settings is null");
@@ -215,14 +223,14 @@ public class Elastic implements Closeable {
     public CompletionStage<Boolean> indexExists(String index) {
         Objects.requireNonNull(index, "Index is null");
         String path = "/" + index;
-        return head(path).thenApply(exists());
+        return headStatus(path).thenApply(exists());
     }
 
     public CompletionStage<Boolean> mappingExists(String index, String type) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         String path = "/" + index + "/_mapping/" + type;
-        return head(path).thenApply(exists());
+        return headStatus(path).thenApply(exists());
     }
 
 
@@ -583,13 +591,13 @@ public class Elastic implements Closeable {
 
     public CompletionStage<Boolean> templateExists(String index) {
         Objects.requireNonNull(index, "index is null");
-        return head("/_template/" + index)
+        return headStatus("/_template/" + index)
                 .thenApply(exists());
     }
 
-    private Function<Response, Boolean> exists() {
-        return response -> {
-            if(response.getStatusLine().getStatusCode() == 200) {
+    private Function<Integer, Boolean> exists() {
+        return status -> {
+            if(status != 404) {
                 return Boolean.TRUE;
             } else {
                 return Boolean.FALSE;
@@ -640,11 +648,14 @@ public class Elastic implements Closeable {
         return request(path, verb, Option.of(body), HashMap.empty());
     }
 
-    public CompletionStage<Response> head(String path) {
-        return head(path, HashMap.empty());
+    public CompletionStage<Integer> headStatus(String path) {
+        return headStatus(path, HashMap.empty());
     }
-    public CompletionStage<Response> head(String path, Map<String, String> query) {
-        return rawRequest(path, "HEAD", Option.none(), query);
+
+    public CompletionStage<Integer> headStatus(String path, Map<String, String> query) {
+        return rawRequest(path, "HEAD", Option.none(), query).thenApply(response ->
+                response.getStatusLine().getStatusCode()
+        );
     }
 
     public CompletionStage<JsValue> get(String path) {
