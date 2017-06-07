@@ -19,6 +19,7 @@ import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.nio.entity.NStringEntity;
@@ -63,10 +64,17 @@ public class Elastic implements Closeable {
     }
 
     public Elastic(List<HttpHost> hosts, Option<String> username, Option<String> password) {
-        RestClientBuilder restClientBuilder = RestClient.builder(hosts.toJavaArray(HttpHost.class));
+        this(Settings.create(hosts).withUsername(username).withPassword(password));
+    }
 
-        Option<Tuple2<String, String>> usernameAndPassword = username.flatMap(u ->
-                password.map(p -> Tuple.of(u, p))
+    public Elastic(Settings settings) {
+        RestClientBuilder restClientBuilder = RestClient.builder(settings.hosts.toJavaArray(HttpHost.class))
+                .setRequestConfigCallback(requestConfigBuilder ->
+                        requestConfigBuilder.setConnectTimeout(settings.connectionTimeout).setSocketTimeout(settings.socketTimeout)
+                ).setMaxRetryTimeoutMillis(settings.maxRetryTimeout);
+
+        Option<Tuple2<String, String>> usernameAndPassword = settings.username.flatMap(u ->
+                settings.password.map(p -> Tuple.of(u, p))
         );
 
         this.restClient = usernameAndPassword
