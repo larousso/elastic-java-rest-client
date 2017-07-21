@@ -1,10 +1,10 @@
 package elastic;
 
-import java.util.concurrent.CompletionStage;
 
 import io.vavr.collection.HashMap;
 import io.vavr.collection.List;
 import io.vavr.collection.Map;
+import io.vavr.concurrent.Future;
 import org.elasticsearch.client.Response;
 import org.reactivecouchbase.json.JsValue;
 
@@ -44,67 +44,67 @@ public class ElasticType {
         return type;
     }
 
-    public CompletionStage<SearchResponse> search(JsValue query) {
+    public Future<SearchResponse> search(JsValue query) {
         return elastic.search(index, type, query);
     }
 
-    public CompletionStage<IndexResponse> index(JsValue data, Option<String> mayBeId) {
+    public Future<IndexResponse> index(JsValue data, Option<String> mayBeId) {
         return elastic.index(index, type, data, mayBeId);
     }
 
-    public CompletionStage<IndexResponse> index(JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
+    public Future<IndexResponse> index(JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
         return elastic.index(index, type, data, mayBeId, create, parent, refresh);
     }
 
-    public CompletionStage<JsValue> delete(String id) {
+    public Future<JsValue> delete(String id) {
         return elastic.delete(index, type, id);
     }
 
-    public CompletionStage<JsValue> getIndex() {
+    public Future<JsValue> getIndex() {
         return elastic.getIndex(index);
     }
 
-    public CompletionStage<JsValue> getMapping() {
+    public Future<JsValue> getMapping() {
         return elastic.getMapping(index, type);
     }
 
-    public CompletionStage<JsValue> getSettings() {
+    public Future<JsValue> getSettings() {
         return elastic.getSettings(index);
     }
 
-    public CompletionStage<JsValue> updateSettings(JsValue settings) {
+    public Future<JsValue> updateSettings(JsValue settings) {
         return elastic.updateSettings(index, settings);
     }
 
-    public CompletionStage<JsValue> getAliases() {
+    public Future<JsValue> getAliases() {
         return elastic.getAliases(index);
     }
 
-    public CompletionStage<JsValue> addAlias(String name) {
+    public Future<JsValue> addAlias(String name) {
         return elastic.addAlias(index, name);
     }
 
-    public CompletionStage<JsValue> deleteAlias(String name) {
+    public Future<JsValue> deleteAlias(String name) {
         return elastic.addAlias(index, name);
     }
 
-    public CompletionStage<JsValue> health() {
+    public Future<JsValue> health() {
         return elastic.health(List.of(index), HashMap.empty());
     }
 
-    public CompletionStage<JsValue> health(Map<String, String> querys) {
+    public Future<JsValue> health(Map<String, String> querys) {
         return elastic.health(List.of(index), querys);
     }
 
-    public CompletionStage<Long> count() {
+    public Future<Long> count() {
         return elastic.count(index, type);
     }
 
-    public CompletionStage<JsValue> refresh() {
+    public Future<JsValue> refresh() {
         return elastic.refresh(index);
     }
 
-    public CompletionStage<JsValue> forceMerge() {
+    public Future<JsValue> forceMerge() {
         return elastic.forceMerge(index);
     }
 
@@ -112,7 +112,7 @@ public class ElasticType {
         return elastic.scroll(index, type, query, scrollTime);
     }
 
-    public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
+    public Future<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
         return elastic.oneBulk(index, type, items);
     }
 
@@ -144,7 +144,7 @@ public class ElasticType {
         return elastic.bulkWithRetry(index, type, batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
     }
 
-    public CompletionStage<JsValue> deleteIndex() {
+    public Future<JsValue> deleteIndex() {
         return elastic.deleteIndex(index);
     }
 

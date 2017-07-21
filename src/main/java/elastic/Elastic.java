@@ -1,25 +1,22 @@
 package elastic;
 
-import static io.vavr.API.*;
+import static io.vavr.API.$;
+import static io.vavr.API.Case;
+import static io.vavr.API.Match;
 import static io.vavr.Patterns.*;
+import static org.reactivecouchbase.json.Syntax.$;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 
-import akka.japi.Pair;
-import elastic.streams.Flows;
-import io.vavr.collection.*;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.config.RequestConfig;
 import org.apache.http.entity.ContentType;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.nio.entity.NStringEntity;
@@ -31,6 +28,7 @@ import org.reactivecouchbase.json.Json;
 import org.reactivecouchbase.json.mapping.Reader;
 
 import akka.NotUsed;
+import akka.japi.Pair;
 import akka.japi.function.Predicate;
 import akka.stream.ThrottleMode;
 import akka.stream.javadsl.Flow;
@@ -40,16 +38,20 @@ import elastic.response.BulkResponse;
 import elastic.response.GetResponse;
 import elastic.response.IndexResponse;
 import elastic.response.SearchResponse;
+import elastic.streams.Flows;
 import io.vavr.Function1;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
+import io.vavr.collection.HashMap;
+import io.vavr.collection.List;
 import io.vavr.collection.Map;
+import io.vavr.collection.Seq;
+import io.vavr.concurrent.Future;
+import io.vavr.concurrent.Promise;
 import io.vavr.control.Either;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
 import scala.concurrent.duration.FiniteDuration;
-
-import static org.reactivecouchbase.json.Syntax.*;
 
 public class Elastic implements Closeable {
 
@@ -101,47 +103,47 @@ public class Elastic implements Closeable {
         return new ElasticType(this, index, type);
     }
 
-    public CompletionStage<GetResponse> get(String index, String type, String id) {
+    public Future<GetResponse> get(String index, String type, String id) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(id, "Id is null");
         String path = List.of(index, type, id).mkString("/");
         return get(path)
-                .thenCompose(convert(GetResponse.reads));
+                .flatMap(convert(GetResponse.reads));
     }
 
-    public CompletionStage<SearchResponse> search(JsValue query) {
+    public Future<SearchResponse> search(JsValue query) {
         Objects.requireNonNull(query, "Query is null");
         return search(Option.none(), Option.none(), query);
     }
 
-    public CompletionStage<SearchResponse> search(String index, JsValue query) {
+    public Future<SearchResponse> search(String index, JsValue query) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(query, "Query is null");
         return search(Option.of(index), Option.none(), query);
     }
 
-    public CompletionStage<SearchResponse> search(String index, String type, JsValue query) {
+    public Future<SearchResponse> search(String index, String type, JsValue query) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(query, "Query is null");
         return search(Option.of(index), Option.of(type), query);
     }
 
-    public CompletionStage<SearchResponse> search(Option<String> index, Option<String> type, JsValue query) {
+    public Future<SearchResponse> search(Option<String> index, Option<String> type, JsValue query) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(query, "Query is null");
         String path = "/" + List.of(index, type, Option.of("_search")).flatMap(identity()).mkString("/");
         return post(path, query)
-                .thenCompose(convert(SearchResponse.reads));
+                .flatMap(convert(SearchResponse.reads));
     }
 
-    public CompletionStage<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId) {
+    public Future<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId) {
         return index(index, type, data, mayBeId, Boolean.FALSE, null, null);
     }
 
-    public CompletionStage<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
+    public Future<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(data, "Data is null");
@@ -166,12 +168,12 @@ public class Elastic implements Closeable {
                 }),
                 Case($None(), any -> post(basePath, data, queryMap))
         )
-                .thenCompose(convert(IndexResponse.reads));
+                .flatMap(convert(IndexResponse.reads));
         //@formatter:on
     }
 
 
-    public CompletionStage<JsValue> delete(String index, String type, String id) {
+    public Future<JsValue> delete(String index, String type, String id) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(id, "id is null");
@@ -179,128 +181,128 @@ public class Elastic implements Closeable {
     }
 
 
-    public CompletionStage<JsValue> createIndex(String index, JsValue settings) {
+    public Future<JsValue> createIndex(String index, JsValue settings) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(settings, "Settings is null");
         return put("/" + index, settings)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> getIndex(String index) {
+    public Future<JsValue> getIndex(String index) {
         Objects.requireNonNull(index, "Index is null");
         return get("/" + index)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> deleteIndex(String index) {
+    public Future<JsValue> deleteIndex(String index) {
         Objects.requireNonNull(index, "Index is null");
         return delete("/" + index)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> createMapping(String index, String type, JsValue mapping) {
+    public Future<JsValue> createMapping(String index, String type, JsValue mapping) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(mapping, "Mapping is null");
         String path = "/" + List.of(index, "_mapping", type).mkString("/");
         return put(path, mapping)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> getMapping(String index, String type) {
+    public Future<JsValue> getMapping(String index, String type) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         String path = "/" + List.of(index, "_mapping", type).mkString("/");
         return get(path)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> getSettings(String index) {
+    public Future<JsValue> getSettings(String index) {
         Objects.requireNonNull(index, "Index is null");
         return get("/" + index + "/_settings")
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> updateSettings(String index, JsValue settings) {
+    public Future<JsValue> updateSettings(String index, JsValue settings) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(settings, "Settings is null");
         return put("/" + index + "/_settings", settings)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<Boolean> indexExists(String index) {
+    public Future<Boolean> indexExists(String index) {
         Objects.requireNonNull(index, "Index is null");
         String path = "/" + index;
-        return headStatus(path).thenApply(exists());
+        return headStatus(path).map(exists());
     }
 
-    public CompletionStage<Boolean> mappingExists(String index, String type) {
+    public Future<Boolean> mappingExists(String index, String type) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         String path = "/" + index + "/_mapping/" + type;
-        return headStatus(path).thenApply(exists());
+        return headStatus(path).map(exists());
     }
 
 
-    public CompletionStage<JsValue> getAliases() {
+    public Future<JsValue> getAliases() {
         String path = "/_alias";
         return get(path)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> getAliases(String index) {
+    public Future<JsValue> getAliases(String index) {
         Objects.requireNonNull(index, "Index is null");
         String path = "/" + index + "/_alias";
         return get(path)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
 
-    public CompletionStage<JsValue> updateAliases(JsValue aliases) {
+    public Future<JsValue> updateAliases(JsValue aliases) {
         Objects.requireNonNull(aliases, "Aliases is null");
         String path = "/_aliases";
         return post(path, aliases)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> addAlias(String index, String aliasName) {
+    public Future<JsValue> addAlias(String index, String aliasName) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(aliasName, "Alias name is null");
         String path = "/" + index + "/_alias/" + aliasName;
         return put(path)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> deleteAlias(String index, String aliasName) {
+    public Future<JsValue> deleteAlias(String index, String aliasName) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(aliasName, "Alias name is null");
         String path = "/" + index + "/_alias/" + aliasName;
         return delete(path)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> health() {
+    public Future<JsValue> health() {
         return health(List.empty(), HashMap.empty());
     }
 
-    public CompletionStage<JsValue> health(Map<String, String> querys) {
+    public Future<JsValue> health(Map<String, String> querys) {
         return health(List.empty(), querys);
     }
 
-    public CompletionStage<JsValue> health(List<String> indices, Map<String, String> querys) {
+    public Future<JsValue> health(List<String> indices, Map<String, String> querys) {
         Objects.requireNonNull(indices, "Indices name is null");
         Objects.requireNonNull(querys, "Querys name is null");
         String path = "/_cluster/health" + indices.mkString("/", ",", "");
         return get(path, querys)
-                .thenCompose(handleError());
+                .flatMap(handleError());
     }
 
-    public CompletionStage<List<Map<String, String>>> cat(String operation) {
+    public Future<List<Map<String, String>>> cat(String operation) {
         Objects.requireNonNull(operation, "Operation name is null");
         return rawRequest("/_cat/" + operation, "GET", Option.none(), HashMap.of("v", ""))
-                .thenCompose(this::readEntityAsString)
-                .thenApply(Tuple2::_1)
-                .thenApply(this::convertCat);
+                .flatMap(this::readEntityAsString)
+                .map(Tuple2::_1)
+                .map(this::convertCat);
     }
 
     private List<Map<String, String>> convertCat(String str) {
@@ -315,22 +317,22 @@ public class Elastic implements Closeable {
         return mayDatas.getOrElse(List::<Map<String, String>>empty);
     }
 
-    public CompletionStage<Long> count() {
+    public Future<Long> count() {
         return count(Option.none(), Option.none());
     }
 
-    public CompletionStage<Long> count(String index) {
+    public Future<Long> count(String index) {
         Objects.requireNonNull(index, "Index is null");
         return count(Option.of(index), Option.none());
     }
 
-    public CompletionStage<Long> count(String index, String type) {
+    public Future<Long> count(String index, String type) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         return count(Option.of(index), Option.of(type));
     }
 
-    public CompletionStage<Long> count(Option<String> index, Option<String> type) {
+    public Future<Long> count(Option<String> index, Option<String> type) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(type, "Type is null");
         return search(index, type, Json.obj()
@@ -339,44 +341,44 @@ public class Elastic implements Closeable {
                         .with("match_all", Json.obj())
                 )
         )
-                .thenApply(searchResponse -> searchResponse.hits.total);
+                .map(searchResponse -> searchResponse.hits.total);
     }
 
-    public CompletionStage<JsValue> refresh() {
+    public Future<JsValue> refresh() {
         return refresh(List.empty());
     }
 
-    public CompletionStage<JsValue> refresh(String index) {
+    public Future<JsValue> refresh(String index) {
         Objects.requireNonNull(index, "Index is null");
         return refresh(List.of(index));
     }
 
-    public CompletionStage<JsValue> refresh(List<String> indices) {
+    public Future<JsValue> refresh(List<String> indices) {
         Objects.requireNonNull(indices, "Indices is null");
         String path = indices.mkString("/", ",", "/") + "_refresh";
-        return post(path).thenCompose(handleError());
+        return post(path).flatMap(handleError());
     }
 
 
-    public CompletionStage<JsValue> forceMerge() {
+    public Future<JsValue> forceMerge() {
         return forceMerge(List.empty());
     }
 
-    public CompletionStage<JsValue> forceMerge(String index) {
+    public Future<JsValue> forceMerge(String index) {
         Objects.requireNonNull(index, "Index is null");
         return forceMerge(List.of(index));
     }
 
-    public CompletionStage<JsValue> forceMerge(List<String> indices) {
+    public Future<JsValue> forceMerge(List<String> indices) {
         Objects.requireNonNull(indices, "Indices is null");
         String path = indices.mkString("/", ",", "/") + "_forcemerge";
-        return post(path).thenCompose(handleError());
+        return post(path).flatMap(handleError());
     }
 
-    public CompletionStage<JsValue> reindex(JsObject reindex) {
+    public Future<JsValue> reindex(JsObject reindex) {
         Objects.requireNonNull(reindex, "Reindex is null");
         String path = "/_reindex";
-        return post(path, reindex).thenCompose(handleError());
+        return post(path, reindex).flatMap(handleError());
     }
 
 
@@ -388,21 +390,21 @@ public class Elastic implements Closeable {
         //@formatter:off
         return Source
                 .fromCompletionStage(
-                        post("/"+index+"/"+type+"/_search", searchQuery, HashMap.of("scroll", scrollTime)).thenCompose(convert(SearchResponse.reads))
+                        post("/"+index+"/"+type+"/_search", searchQuery, HashMap.of("scroll", scrollTime)).flatMap(convert(SearchResponse.reads)).toCompletableFuture()
                 )
                 .flatMapConcat(resp ->
-                        Source.single(resp).concat(Source.unfoldAsync(resp._scroll_id, id -> this.nextScroll(id, scrollTime)))
+                        Source.single(resp).concat(Source.unfoldAsync(resp._scroll_id, id -> this.nextScroll(id, scrollTime).toCompletableFuture()))
                 );
         //@formatter:on
     }
 
-    private CompletionStage<Optional<Pair<String, SearchResponse>>> nextScroll(String scrollId, String scrollTime) {
+    private Future<Optional<Pair<String, SearchResponse>>> nextScroll(String scrollId, String scrollTime) {
         return post("/_search/scroll", Json.obj(
                 $("scroll", scrollTime),
                 $("scroll_id", scrollId)
         ))
-                .thenCompose(convert(SearchResponse.reads))
-                .thenApply(response -> {
+                .flatMap(convert(SearchResponse.reads))
+                .map(response -> {
                     if (response.hits.hits.isEmpty()) {
                         return Optional.<Pair<String, SearchResponse>>empty();
                     } else {
@@ -426,7 +428,7 @@ public class Elastic implements Closeable {
         } else {
             windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
         }
-        return windows.mapAsync(parallelisation, this::oneBulk).map(p -> p._1.get());
+        return windows.mapAsync(parallelisation, elt -> this.oneBulk(elt).toCompletableFuture()).map(p -> p._1.get());
     }
 
 
@@ -445,7 +447,7 @@ public class Elastic implements Closeable {
         } else {
             windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
         }
-        return windows.mapAsync(parallelisation, i -> this.oneBulk(index, type, i)).map(p -> p._1.get());
+        return windows.mapAsync(parallelisation, i -> this.oneBulk(index, type, i).toCompletableFuture()).map(p -> p._1.get());
     }
 
     public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
@@ -545,10 +547,10 @@ public class Elastic implements Closeable {
         //@formatter:off
         return Source.range(1, nbRetry)
                 .via(latencyFlow)
-                .via(Flows.mapAsync(any -> oneBulkInternal(items, path)))
+                .via(Flows.mapAsync(any -> oneBulkInternal(items, path).toCompletableFuture()))
                 .filterNot(isError)
                 .take(1)
-                .orElse(Source.lazily(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items))))
+                .orElse(Source.lazily(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items).toCompletableFuture())))
                 .map(r -> {
                     if(isError.test(r)) {
                         return Match(r._1).of(
@@ -562,7 +564,7 @@ public class Elastic implements Closeable {
         //@formatter:on
     }
 
-    public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
+    public Future<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
         String path = "/_bulk";
         //@formatter:off
         return oneBulkInternal(items, path);
@@ -570,23 +572,24 @@ public class Elastic implements Closeable {
     }
 
 
-    public CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulk(String index, String type, java.util.List<BulkItem> items) {
+    public Future<Tuple2<Try<BulkResponse>, Response>> oneBulk(String index, String type, java.util.List<BulkItem> items) {
         String path = "/" + index + "/" + type + "/_bulk";
         //@formatter:off
         return oneBulkInternal(items, path);
         //@formatter:on
     }
 
-    private CompletionStage<Tuple2<Try<BulkResponse>, Response>> oneBulkInternal(java.util.List<BulkItem> items, String path) {
+    private Future<Tuple2<Try<BulkResponse>, Response>> oneBulkInternal(java.util.List<BulkItem> items, String path) {
         String bulkBody = List.ofAll(items)
                 .flatMap(i -> List.of(i.operation, i.source))
                 .filter(Objects::nonNull)
                 .map(Json::toJson)
                 .map(Json::stringify)
                 .mkString("\n") + "\n";
-        return requestWithResponse(path, "POST", bulkBody).thenCompose(p ->
-                convert(BulkResponse.reads).apply(p._1).thenApply(r -> Tuple.of(Try.success(r), p._2))
-                        .exceptionally(e -> {
+        return requestWithResponse(path, "POST", bulkBody)
+                .flatMap(p ->
+                    convert(BulkResponse.reads).apply(p._1).map(r -> Tuple.of(Try.success(r), p._2))
+                        .recover(e -> {
                             if (e instanceof ResponseException) {
                                 return Tuple.of(Try.failure(e), ((ResponseException) e).getResponse());
                             } else {
@@ -597,10 +600,10 @@ public class Elastic implements Closeable {
     }
 
 
-    public CompletionStage<Boolean> templateExists(String index) {
+    public Future<Boolean> templateExists(String index) {
         Objects.requireNonNull(index, "index is null");
         return headStatus("/_template/" + index)
-                .thenApply(exists());
+                .map(exists());
     }
 
     private Function<Integer, Boolean> exists() {
@@ -613,129 +616,129 @@ public class Elastic implements Closeable {
         };
     }
 
-    public CompletionStage<JsValue> getTemplate(String... name) {
+    public Future<JsValue> getTemplate(String... name) {
         Objects.requireNonNull(name, "name is null");
         return get("/_template/" + List.of(name).mkString(","));
     }
 
-    public CompletionStage<JsValue> createTemplate(String name, JsValue template) {
+    public Future<JsValue> createTemplate(String name, JsValue template) {
         Objects.requireNonNull(name, "name is null");
         Objects.requireNonNull(template, "template is null");
         return put("/_template/" + name, template);
     }
 
-    public CompletionStage<JsValue> deleteTemplate(String name) {
+    public Future<JsValue> deleteTemplate(String name) {
         Objects.requireNonNull(name, "name is null");
         return delete("/_template/" + name);
     }
 
-    private <T> Function<JsValue, CompletionStage<T>> fromJson(Reader<T> reader) {
+    private <T> Function<JsValue, Future<T>> fromJson(Reader<T> reader) {
         return jsValue ->
                 Json.fromJson(jsValue, reader).fold(
-                        error -> Elastic.<T>failed(new JsonInvalidException(error.errors)),
-                        ok -> Elastic.success(ok.get())
+                        error -> Future.<T>failed(new JsonInvalidException(error.errors)),
+                        ok -> Future.successful(ok.get())
                 );
     }
 
-    private Function<JsValue, CompletionStage<JsValue>> handleError() {
+    private Function<JsValue, Future<JsValue>> handleError() {
         return json -> {
             JsObject jsObject = json.asObject();
             if(jsObject.exists("error") && !jsObject.field("error").asObject().isEmpty()) {
-                return Elastic.failed(new RuntimeException(json.stringify()));
+                return Future.failed(new RuntimeException(json.stringify()));
             } else {
-                return Elastic.success(json);
+                return Future.successful(json);
             }
         };
     }
 
-    private <T> Function<JsValue, CompletionStage<T>> convert(Reader<T> reader) {
-        return json -> handleError().apply(json).thenCompose(fromJson(reader));
+    private <T> Function<JsValue, Future<T>> convert(Reader<T> reader) {
+        return json -> handleError().apply(json).flatMap(fromJson(reader));
     }
 
-    public CompletionStage<Tuple2<JsValue, Response>> requestWithResponse(String path, String verb, String body) {
+    public Future<Tuple2<JsValue, Response>> requestWithResponse(String path, String verb, String body) {
         return request(path, verb, Option.of(body), HashMap.empty());
     }
 
-    public CompletionStage<Integer> headStatus(String path) {
+    public Future<Integer> headStatus(String path) {
         return headStatus(path, HashMap.empty());
     }
 
-    public CompletionStage<Integer> headStatus(String path, Map<String, String> query) {
-        return rawRequest(path, "HEAD", Option.none(), query).thenApply(response ->
+    public Future<Integer> headStatus(String path, Map<String, String> query) {
+        return rawRequest(path, "HEAD", Option.none(), query).map(response ->
                 response.getStatusLine().getStatusCode()
         );
     }
 
-    public CompletionStage<JsValue> get(String path) {
+    public Future<JsValue> get(String path) {
         return get(path, HashMap.empty());
     }
-    public CompletionStage<JsValue> get(String path, Map<String, String> query) {
-        return request(path, "GET", Option.none(), query).thenApply(Tuple2::_1);
+    public Future<JsValue> get(String path, Map<String, String> query) {
+        return request(path, "GET", Option.none(), query).map(Tuple2::_1);
     }
 
-    public CompletionStage<JsValue> delete(String path) {
+    public Future<JsValue> delete(String path) {
         return delete(path, HashMap.empty());
     }
 
-    public CompletionStage<JsValue> delete(String path, Map<String, String> query) {
-        return request(path, "DELETE", Option.none(), query).thenApply(Tuple2::_1);
+    public Future<JsValue> delete(String path, Map<String, String> query) {
+        return request(path, "DELETE", Option.none(), query).map(Tuple2::_1);
     }
 
-    public CompletionStage<JsValue> post(String path, JsValue body, Map<String, String> query) {
+    public Future<JsValue> post(String path, JsValue body, Map<String, String> query) {
         return post(path, Option.of(Json.stringify(body)), query);
     }
 
-    public CompletionStage<JsValue> post(String path, JsValue body) {
+    public Future<JsValue> post(String path, JsValue body) {
         return post(path, Option.of(Json.stringify(body)), HashMap.empty());
     }
 
-    public CompletionStage<JsValue> post(String path) {
+    public Future<JsValue> post(String path) {
         return post(path, Option.none(), HashMap.empty());
     }
 
-    public CompletionStage<JsValue> post(String path, Map<String, String> query) {
+    public Future<JsValue> post(String path, Map<String, String> query) {
         return post(path, Option.none(), query);
     }
 
-    public CompletionStage<JsValue> post(String path, String body, Map<String, String> query) {
+    public Future<JsValue> post(String path, String body, Map<String, String> query) {
         return post(path, Option.of(body), query);
     }
 
-    public CompletionStage<JsValue> post(String path, Option<String> body, Map<String, String> query) {
-        return request(path, "POST", body, query).thenApply(Tuple2::_1);
+    public Future<JsValue> post(String path, Option<String> body, Map<String, String> query) {
+        return request(path, "POST", body, query).map(Tuple2::_1);
     }
 
-    public CompletionStage<JsValue> put(String path, JsValue body) {
+    public Future<JsValue> put(String path, JsValue body) {
         return put(path, Option.of(Json.stringify(body)), HashMap.empty());
     }
 
-    public CompletionStage<JsValue> put(String path, JsValue body, Map<String, String> query) {
+    public Future<JsValue> put(String path, JsValue body, Map<String, String> query) {
         return put(path, Option.of(Json.stringify(body)), query);
     }
 
-    public CompletionStage<JsValue> put(String path) {
+    public Future<JsValue> put(String path) {
         return put(path, Option.none(), HashMap.empty());
     }
 
-    public CompletionStage<JsValue> put(String path, Map<String, String> query) {
+    public Future<JsValue> put(String path, Map<String, String> query) {
         return put(path, Option.none(), query);
     }
 
-    public CompletionStage<JsValue> put(String path, String body, Map<String, String> query) {
+    public Future<JsValue> put(String path, String body, Map<String, String> query) {
         return put(path, Option.of(body), query);
     }
 
-    public CompletionStage<JsValue> put(String path, Option<String> body, Map<String, String> query) {
-        return request(path, "PUT", body, query).thenApply(Tuple2::_1);
+    public Future<JsValue> put(String path, Option<String> body, Map<String, String> query) {
+        return request(path, "PUT", body, query).map(Tuple2::_1);
     }
 
-    public CompletionStage<Tuple2<JsValue, Response>> request(String path, String verb, Option<String> body, Map<String, String> query) {
-        CompletionStage<Response> response = rawRequest(path, verb, body, query);
+    public Future<Tuple2<JsValue, Response>> request(String path, String verb, Option<String> body, Map<String, String> query) {
+        Future<Response> response = rawRequest(path, verb, body, query);
 
         //@formatter:off
         return response
-                .thenCompose(this::readEntityAsString)
-                .thenApply(pair -> pair.map1(json -> {
+                .flatMap(this::readEntityAsString)
+                .map(pair -> pair.map1(json -> {
                             if(json == null) {
                                 return null;
                             } else {
@@ -746,39 +749,29 @@ public class Elastic implements Closeable {
         //@formatter:on
     }
 
-    private CompletionStage<Tuple2<String, Response>> readEntityAsString(Response r) {
+    private Future<Tuple2<String, Response>> readEntityAsString(Response r) {
         HttpEntity entity = r.getEntity();
         if(entity == null) {
-            return success(null);
+            return Future.successful(null);
         } else {
             return Try.of(() -> EntityUtils.toString(entity))
                     .map(s -> Tuple.of(s, r))
-                    .map(Elastic::success)
-                    .getOrElseGet(Elastic::failed);
+                    .map(Future::successful)
+                    .getOrElseGet(Future::failed);
         }
     }
 
-    public CompletionStage<Response> rawRequest(String path, String verb, Option<String> body, Map<String, String> query) {
+    public Future<Response> rawRequest(String path, String verb, Option<String> body, Map<String, String> query) {
         return body.map(b -> {
             HttpEntity entity = new NStringEntity(b, ContentType.APPLICATION_JSON);
             EsResponseListener esResponseListener = new EsResponseListener();
             restClient.performRequestAsync(verb, path, query.toJavaMap(), entity, esResponseListener);
-            return esResponseListener.promise;
+            return esResponseListener.future();
         }).getOrElse(() -> {
             EsResponseListener esResponseListener = new EsResponseListener();
             restClient.performRequestAsync(verb, path, query.toJavaMap(), esResponseListener);
-            return esResponseListener.promise;
+            return esResponseListener.future();
         });
-    }
-
-    private static <T> CompletionStage<T> success(T e) {
-        return CompletableFuture.completedFuture(e);
-    }
-
-    private static <T> CompletionStage<T> failed(Throwable e) {
-        CompletableFuture<T> cf = new CompletableFuture<T>();
-        cf.completeExceptionally(e);
-        return cf;
     }
 
     private <T> Function1<T, T> identity() {
@@ -788,20 +781,24 @@ public class Elastic implements Closeable {
 
     private static class EsResponseListener implements ResponseListener {
 
-        public final CompletableFuture<Response> promise;
+        public final Promise<Response> promise;
 
         public EsResponseListener() {
-            promise = new CompletableFuture<>();
+            promise = Promise.make();
+        }
+
+        public Future<Response> future() {
+            return promise.future();
         }
 
         @Override
         public void onSuccess(Response response) {
-            promise.complete(response);
+            promise.success(response);
         }
 
         @Override
         public void onFailure(Exception exception) {
-            promise.completeExceptionally(exception);
+            promise.failure(exception);
         }
     }
 

@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.reactivecouchbase.json.Syntax.$;
 
 import java.io.IOException;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import io.vavr.concurrent.Future;
 import org.apache.http.HttpHost;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -60,7 +60,7 @@ public class ElasticTest {
 	@Before
 	public void cleanUpIndices() {
 		try {
-			elasticClient.deleteIndex(INDEX+"*").toCompletableFuture().get();
+			elasticClient.deleteIndex(INDEX+"*").get();
 		} catch (Exception e) {
 		}
 	}
@@ -75,11 +75,11 @@ public class ElasticTest {
 	@Test
 	public void index_creation_should_work() throws ExecutionException, InterruptedException {
 
-		Boolean exists = elasticClient.indexExists(INDEX).toCompletableFuture().get();
+		Boolean exists = elasticClient.indexExists(INDEX).get();
 		assertThat(exists).isFalse();
 		createIndexWithMapping();
-		assertThat(elasticClient.indexExists(INDEX).toCompletableFuture().get()).isTrue();
-		JsValue index = elasticClient.getIndex(INDEX).toCompletableFuture().get();
+		assertThat(elasticClient.indexExists(INDEX).get()).isTrue();
+		JsValue index = elasticClient.getIndex(INDEX).get();
 		String type = index.asObject().field("test").asObject().field("mappings").asObject().field("test").asObject().field("properties").asObject()
 				.field("name").asObject().field("type").asString();
 		assertThat(type).isIn("string", "keyword");
@@ -88,21 +88,21 @@ public class ElasticTest {
 
 	@Test
 	public void mapping_creation_should_work() throws ExecutionException, InterruptedException {
-		Boolean exists = elasticClient.indexExists(INDEX).toCompletableFuture().get();
+		Boolean exists = elasticClient.indexExists(INDEX).get();
 		assertThat(exists).isFalse();
-		Boolean mappingExists = elasticClient.mappingExists(INDEX, TYPE).toCompletableFuture().get();
+		Boolean mappingExists = elasticClient.mappingExists(INDEX, TYPE).get();
 		assertThat(mappingExists).isFalse();
-		CompletionStage<JsValue> indexCreationResponse = elasticClient.createIndex(INDEX, Json.obj());
-		indexCreationResponse.toCompletableFuture().get();
+		Future<JsValue> indexCreationResponse = elasticClient.createIndex(INDEX, Json.obj());
+		indexCreationResponse.get();
 
-		assertThat(elasticClient.indexExists(INDEX).toCompletableFuture().get()).isTrue();
-		CompletionStage<JsValue> mappingCreation = elasticClient.createMapping(INDEX, TYPE,
+		assertThat(elasticClient.indexExists(INDEX).get()).isTrue();
+		Future<JsValue> mappingCreation = elasticClient.createMapping(INDEX, TYPE,
 				Json.obj($("properties", $("name", Json.obj($("type", "string"), $("index", "not_analyzed"))))));
-		mappingCreation.toCompletableFuture().get();
+		mappingCreation.get();
 
-        assertThat(elasticClient.mappingExists(INDEX, TYPE).toCompletableFuture().get()).isTrue();
+        assertThat(elasticClient.mappingExists(INDEX, TYPE).get()).isTrue();
 
-		JsValue index = elasticClient.getIndex(INDEX).toCompletableFuture().get();
+		JsValue index = elasticClient.getIndex(INDEX).get();
 		String type = index
 				.field(TYPE)
 				.field("mappings")
@@ -111,7 +111,7 @@ public class ElasticTest {
 				.field("name").field("type").asString();
 		assertThat(type).isIn("string", "keyword");
 
-		JsValue mapping = elasticClient.getMapping(INDEX, TYPE).toCompletableFuture().get();
+		JsValue mapping = elasticClient.getMapping(INDEX, TYPE).get();
 
 		assertThat(mapping.field(INDEX).field("mappings")).isEqualTo(index.field(INDEX).field("mappings"));
 	}
@@ -119,13 +119,13 @@ public class ElasticTest {
 	@Test
 	public void index_data_should_work() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
-		CompletionStage<IndexResponse> indexResult = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1"));
-		IndexResponse indexResponse = indexResult.toCompletableFuture().get();
+		Future<IndexResponse> indexResult = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1"));
+		IndexResponse indexResponse = indexResult.get();
 
 		assertThat(indexResponse.created).isTrue();
 		assertThat(indexResponse._id).isEqualTo("1");
 
-		GetResponse elt = elasticClient.get(INDEX, TYPE, "1").toCompletableFuture().get();
+		GetResponse elt = elasticClient.get(INDEX, TYPE, "1").get();
 		assertThat(elt.found).isTrue();
 		Option<Person> mayBePerson = elt.as(Person.read);
 		ElasticTest.Person person = mayBePerson.get();
@@ -138,13 +138,13 @@ public class ElasticTest {
 		IndexResponse indexResponse = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1")).toCompletableFuture()
 				.get();
 
-		elasticClient.refresh().toCompletableFuture().get();
+		elasticClient.refresh().get();
 
 		assertThat(indexResponse.created).isTrue();
 		assertThat(indexResponse._id).isEqualTo("1");
 
-		CompletionStage<SearchResponse> search = elasticClient.search(INDEX, TYPE, Json.obj($("query", $("match_all", Json.obj()))));
-		SearchResponse searchResponse = search.toCompletableFuture().get();
+		Future<SearchResponse> search = elasticClient.search(INDEX, TYPE, Json.obj($("query", $("match_all", Json.obj()))));
+		SearchResponse searchResponse = search.get();
 		assertThat(searchResponse.hits.total).isEqualTo(1);
 		List<Person> people = searchResponse.hits.hitsAs(Person.read);
 		ElasticTest.Person person = people.head();
@@ -159,9 +159,9 @@ public class ElasticTest {
 				.runWith(Sink.seq(), ActorMaterializer.create(system)).toCompletableFuture().get();
 
 		assertThat(response).hasSize(100);
-		elasticClient.refresh(INDEX).toCompletableFuture().get();
+		elasticClient.refresh(INDEX).get();
 
-		Long count = elasticClient.count(INDEX).toCompletableFuture().get();
+		Long count = elasticClient.count(INDEX).get();
 		assertThat(count).isEqualTo(500);
 	}
 
@@ -178,9 +178,9 @@ public class ElasticTest {
 		assertThat(response.errors).isTrue();
 		assertThat(response.getErrors()).hasSize(10);
 
-		elasticClient.refresh(INDEX).toCompletableFuture().get();
+		elasticClient.refresh(INDEX).get();
 
-		Long count = elasticClient.count(INDEX).toCompletableFuture().get();
+		Long count = elasticClient.count(INDEX).get();
 		assertThat(count).isEqualTo(10);
 	}
 
@@ -193,9 +193,9 @@ public class ElasticTest {
 				.runWith(Sink.seq(), ActorMaterializer.create(system)).toCompletableFuture().get();
 
 		assertThat(response).hasSize(100);
-		elasticClient.refresh(INDEX).toCompletableFuture().get();
+		elasticClient.refresh(INDEX).get();
 
-		Long count = elasticClient.count(INDEX).toCompletableFuture().get();
+		Long count = elasticClient.count(INDEX).get();
 		assertThat(count).isEqualTo(500);
 	}
 
@@ -222,16 +222,16 @@ public class ElasticTest {
 		assertThat(onError).hasSize(2);
 		onError.forEach(err -> assertThat(err.bulkResponse.getErrors()).hasSize(5));
 
-		elasticClient.refresh(INDEX).toCompletableFuture().get();
+		elasticClient.refresh(INDEX).get();
 
-		Long count = elasticClient.count(INDEX).toCompletableFuture().get();
+		Long count = elasticClient.count(INDEX).get();
 		assertThat(count).isEqualTo(10);
 	}
 
 	@Test
     public void get_mapping() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
-        JsValue jsValue = elasticClient.getMapping(INDEX, TYPE).toCompletableFuture().get();
+        JsValue jsValue = elasticClient.getMapping(INDEX, TYPE).get();
         assertThat(jsValue).isEqualTo(Json.obj(
                 $("test",
                         $("mappings",
@@ -250,7 +250,7 @@ public class ElasticTest {
     @Test
     public void get_settings() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
-        JsValue jsValue = elasticClient.getSettings(INDEX).toCompletableFuture().get();
+        JsValue jsValue = elasticClient.getSettings(INDEX).get();
 
         JsObject newObj = jsValue.asObject().mapProperties(t ->
                 t._2.asObject().mapProperties(s ->
@@ -287,8 +287,8 @@ public class ElasticTest {
 							$("number_of_replicas", "3")
 					))
 			)
-        )).toCompletableFuture().get();
-        JsValue jsValue = elasticClient.getSettings(INDEX).toCompletableFuture().get();
+        )).get();
+        JsValue jsValue = elasticClient.getSettings(INDEX).get();
 
         JsObject newObj = jsValue.asObject().mapProperties(t ->
                 t._2.asObject().mapProperties(s ->
@@ -318,7 +318,7 @@ public class ElasticTest {
     @Test
 	public void cat_indices() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
-		List<Map<String, String>> indices = elasticClient.cat("indices").toCompletableFuture().get();
+		List<Map<String, String>> indices = elasticClient.cat("indices").get();
 
 		assertThat(indices).hasSize(1);
 		Map<String, String> line = indices.head()
@@ -329,7 +329,7 @@ public class ElasticTest {
 	@Test
 	public void health() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
-		JsValue health = elasticClient.health().toCompletableFuture().get();
+		JsValue health = elasticClient.health().get();
 		assertThat(health.field("cluster_name").asString()).isEqualTo("elasticsearch");
 	}
 
@@ -338,34 +338,34 @@ public class ElasticTest {
 	public void aliases() throws ExecutionException, InterruptedException  {
 		createIndexWithMapping();
 
-		assertThat(elasticClient.getAliases().toCompletableFuture().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj()))));
-		assertThat(elasticClient.getAliases(INDEX).toCompletableFuture().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj()))));
+		assertThat(elasticClient.getAliases().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj()))));
+		assertThat(elasticClient.getAliases(INDEX).get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj()))));
 
 		elasticClient.updateAliases(Json.obj($("actions", Json.arr(
 				$( "add",  Json.obj($( "index", "test"), $("alias", "aliasTest" )))
-		)))).toCompletableFuture().get();
+		)))).get();
 
-		assertThat(elasticClient.getAliases().toCompletableFuture().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj($("aliasTest", Json.obj()))))));
-		assertThat(elasticClient.getAliases(INDEX).toCompletableFuture().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj($("aliasTest", Json.obj()))))));
+		assertThat(elasticClient.getAliases().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj($("aliasTest", Json.obj()))))));
+		assertThat(elasticClient.getAliases(INDEX).get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj($("aliasTest", Json.obj()))))));
 
-		elasticClient.deleteAlias(INDEX, "aliasTest").toCompletableFuture().get();
+		elasticClient.deleteAlias(INDEX, "aliasTest").get();
 
-		assertThat(elasticClient.getAliases().toCompletableFuture().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj()))));
-		assertThat(elasticClient.getAliases(INDEX).toCompletableFuture().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj()))));
+		assertThat(elasticClient.getAliases().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj()))));
+		assertThat(elasticClient.getAliases(INDEX).get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj()))));
 
-		elasticClient.addAlias(INDEX, "aliasTest2").toCompletableFuture().get();
+		elasticClient.addAlias(INDEX, "aliasTest2").get();
 
-		assertThat(elasticClient.getAliases().toCompletableFuture().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj($("aliasTest2", Json.obj()))))));
-		assertThat(elasticClient.getAliases(INDEX).toCompletableFuture().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj($("aliasTest2", Json.obj()))))));
+		assertThat(elasticClient.getAliases().get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj($("aliasTest2", Json.obj()))))));
+		assertThat(elasticClient.getAliases(INDEX).get()).isEqualTo(Json.obj($("test", $("aliases", Json.obj($("aliasTest2", Json.obj()))))));
 
 	}
 
 	@Test
 	public void force_merge() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
-		elasticClient.forceMerge().toCompletableFuture().get();
-		elasticClient.forceMerge(INDEX).toCompletableFuture().get();
-		elasticClient.forceMerge(List.of(INDEX)).toCompletableFuture().get();
+		elasticClient.forceMerge().get();
+		elasticClient.forceMerge(INDEX).get();
+		elasticClient.forceMerge(List.of(INDEX)).get();
 	}
 
 	@Test
@@ -375,21 +375,21 @@ public class ElasticTest {
 		createIndexWithMapping(index, "test");
 
 		ElasticType elasticType = elasticClient.type(INDEX, TYPE);
-		elasticType.index(Json.obj($("name", "Ragnar")), Option.some("1")).toCompletableFuture().get();
-		elasticType.index(Json.obj($("name", "Floki")), Option.some("2")).toCompletableFuture().get();
-		elasticType.refresh().toCompletableFuture().get();
+		elasticType.index(Json.obj($("name", "Ragnar")), Option.some("1")).get();
+		elasticType.index(Json.obj($("name", "Floki")), Option.some("2")).get();
+		elasticType.refresh().get();
 
 		ElasticType newType = elasticClient.type(index, TYPE);
-		assertThat(elasticType.count().toCompletableFuture().get()).isEqualTo(2);
-		assertThat(newType.count().toCompletableFuture().get()).isEqualTo(0);
+		assertThat(elasticType.count().get()).isEqualTo(2);
+		assertThat(newType.count().get()).isEqualTo(0);
 
 		elasticClient.reindex(Json.obj(
 				$("source", $("index", INDEX)),
 				$("dest", $("index", index))
-		)).toCompletableFuture().get();
-		newType.refresh().toCompletableFuture().get();
+		)).get();
+		newType.refresh().get();
 
-		assertThat(newType.count().toCompletableFuture().get()).isEqualTo(2);
+		assertThat(newType.count().get()).isEqualTo(2);
 
 
 	}
@@ -408,20 +408,20 @@ public class ElasticTest {
 
 	@Test
 	public void create_exists_get_delete_template() throws ExecutionException, InterruptedException {
-		Boolean tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
+		Boolean tplExists = elasticClient.templateExists("test").get();
 		assertThat(tplExists).isFalse();
 		String template = "{" + "    \"template\" : \"te*\", " + "    \"settings\" : { " + "        \"number_of_shards\" : 1 " + "    }, "
 				+ "    \"aliases\" : { " + "        \"alias1\" : {}, " + "        \"alias2\" : { " + "            \"filter\" : { "
 				+ "                \"term\" : {\"user\" : \"kimchy\" } " + "            }, " + "            \"routing\" : \"kimchy\" " + "        }, "
 				+ "        \"{index}-alias\" : {}  " + "    } " + "} ";
 		JsValue expectedTemplate = Json.parse(template);
-		elasticClient.createTemplate("test", expectedTemplate).toCompletableFuture().get();
-		tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
+		elasticClient.createTemplate("test", expectedTemplate).get();
+		tplExists = elasticClient.templateExists("test").get();
 		assertThat(tplExists).isTrue();
-		JsValue jsTemplate = elasticClient.getTemplate("test").toCompletableFuture().get();
+		JsValue jsTemplate = elasticClient.getTemplate("test").get();
 		assertThat(jsTemplate.exists("test")).isTrue();
-		elasticClient.deleteTemplate("test").toCompletableFuture().get();
-		tplExists = elasticClient.templateExists("test").toCompletableFuture().get();
+		elasticClient.deleteTemplate("test").get();
+		tplExists = elasticClient.templateExists("test").get();
 		assertThat(tplExists).isFalse();
 	}
 
@@ -442,7 +442,7 @@ public class ElasticTest {
 								)
 						))
 				)
-				.toCompletableFuture().get();
+				.get();
 	}
 
 	public static class Person {
