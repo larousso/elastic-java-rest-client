@@ -1,12 +1,12 @@
 package elastic.response;
 
-import javaslang.control.Option;
+import io.vavr.control.Option;
 import org.reactivecouchbase.json.*;
 import org.reactivecouchbase.json.mapping.JsResult;
 import org.reactivecouchbase.json.mapping.Reader;
 import static org.reactivecouchbase.json.Syntax.*;
 
-import javaslang.collection.List;
+import io.vavr.collection.List;
 import org.reactivecouchbase.json.mapping.Writer;
 
 public class SearchResponse {

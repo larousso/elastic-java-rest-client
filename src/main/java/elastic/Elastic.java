@@ -1,7 +1,7 @@
 package elastic;
 
-import static javaslang.API.*;
-import static javaslang.Patterns.*;
+import static io.vavr.API.*;
+import static io.vavr.Patterns.*;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -13,7 +13,7 @@ import java.util.function.Function;
 
 import akka.japi.Pair;
 import elastic.streams.Flows;
-import javaslang.collection.*;
+import io.vavr.collection.*;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -40,13 +40,13 @@ import elastic.response.BulkResponse;
 import elastic.response.GetResponse;
 import elastic.response.IndexResponse;
 import elastic.response.SearchResponse;
-import javaslang.Function1;
-import javaslang.Tuple;
-import javaslang.Tuple2;
-import javaslang.collection.Map;
-import javaslang.control.Either;
-import javaslang.control.Option;
-import javaslang.control.Try;
+import io.vavr.Function1;
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
+import io.vavr.collection.Map;
+import io.vavr.control.Either;
+import io.vavr.control.Option;
+import io.vavr.control.Try;
 import scala.concurrent.duration.FiniteDuration;
 
 import static org.reactivecouchbase.json.Syntax.*;
@@ -157,14 +157,14 @@ public class Elastic implements Closeable {
         Map<String, String> queryMap = HashMap.ofEntries(entries);
 
         return Match(mayBeId).of(
-                Case(Some($()), id -> {
+                Case($Some($()), id -> {
                     String p = basePath + "/" + id;
                     if(Boolean.TRUE.equals(create)) {
                         p = p + "_create";
                     }
                     return put(p, data, queryMap);
                 }),
-                Case(None(), any -> post(basePath, data, queryMap))
+                Case($None(), any -> post(basePath, data, queryMap))
         )
                 .thenCompose(convert(IndexResponse.reads));
         //@formatter:on
@@ -552,8 +552,8 @@ public class Elastic implements Closeable {
                 .map(r -> {
                     if(isError.test(r)) {
                         return Match(r._1).of(
-                                Case(Success($()), s -> Either.left(BulkFailure.fromBulkResponse(s, r._2))),
-                                Case(Failure($()), e -> Either.left(BulkFailure.fromException(e, r._2)))
+                                Case($Success($()), s -> Either.left(BulkFailure.fromBulkResponse(s, r._2))),
+                                Case($Failure($()), e -> Either.left(BulkFailure.fromException(e, r._2)))
                         );
                     } else {
                         return Either.right(r._1.get());

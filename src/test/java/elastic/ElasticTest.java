@@ -32,11 +32,11 @@ import elastic.response.BulkResponse;
 import elastic.response.GetResponse;
 import elastic.response.IndexResponse;
 import elastic.response.SearchResponse;
-import javaslang.collection.HashMap;
-import javaslang.collection.List;
-import javaslang.collection.Map;
-import javaslang.control.Either;
-import javaslang.control.Option;
+import io.vavr.collection.HashMap;
+import io.vavr.collection.List;
+import io.vavr.collection.Map;
+import io.vavr.control.Either;
+import io.vavr.control.Option;
 import scala.concurrent.duration.FiniteDuration;
 
 public class ElasticTest {

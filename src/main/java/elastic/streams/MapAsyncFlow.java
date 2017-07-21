@@ -7,9 +7,9 @@ import akka.stream.FlowShape;
 import akka.stream.Inlet;
 import akka.stream.Outlet;
 import akka.stream.stage.*;
-import javaslang.Tuple2;
-import javaslang.collection.List;
-import javaslang.control.Option;
+import io.vavr.Tuple2;
+import io.vavr.collection.List;
+import io.vavr.control.Option;
 
 import java.util.concurrent.CompletionStage;
 

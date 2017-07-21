@@ -1,7 +1,7 @@
 package elastic;
 
-import javaslang.collection.List;
-import javaslang.control.Option;
+import io.vavr.collection.List;
+import io.vavr.control.Option;
 import org.apache.http.HttpHost;
 
 /**
@@ -11,7 +11,7 @@ public class Settings {
 
     public final List<HttpHost> hosts;
     public final Option<String> username;
-    public final javaslang.control.Option<String> password;
+    public final io.vavr.control.Option<String> password;
     public final Integer connectionTimeout;
     public final Integer socketTimeout;
     public final Integer maxRetryTimeout;

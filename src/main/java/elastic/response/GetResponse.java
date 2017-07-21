@@ -1,8 +1,8 @@
 package elastic.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import javaslang.collection.List;
-import javaslang.control.Option;
+import io.vavr.collection.List;
+import io.vavr.control.Option;
 import org.reactivecouchbase.json.JsNull;
 import org.reactivecouchbase.json.JsPair;
 import org.reactivecouchbase.json.JsValue;

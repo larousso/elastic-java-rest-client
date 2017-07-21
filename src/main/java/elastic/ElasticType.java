@@ -2,9 +2,9 @@ package elastic;
 
 import java.util.concurrent.CompletionStage;
 
-import javaslang.collection.HashMap;
-import javaslang.collection.List;
-import javaslang.collection.Map;
+import io.vavr.collection.HashMap;
+import io.vavr.collection.List;
+import io.vavr.collection.Map;
 import org.elasticsearch.client.Response;
 import org.reactivecouchbase.json.JsValue;
 
@@ -16,10 +16,10 @@ import elastic.request.BulkItem;
 import elastic.response.BulkResponse;
 import elastic.response.IndexResponse;
 import elastic.response.SearchResponse;
-import javaslang.Tuple2;
-import javaslang.control.Either;
-import javaslang.control.Option;
-import javaslang.control.Try;
+import io.vavr.Tuple2;
+import io.vavr.control.Either;
+import io.vavr.control.Option;
+import io.vavr.control.Try;
 import scala.concurrent.duration.FiniteDuration;
 
 public class ElasticType {
