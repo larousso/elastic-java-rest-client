@@ -22,7 +22,7 @@ repositories {
 
 ```groovy
 dependencies {
-    compile("com.adelegue:elastic-java-rest-client:1.0.13")
+    compile("com.adelegue:elastic-java-rest-client:2.0.1")
 }
 ```
 
