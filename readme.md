@@ -36,10 +36,10 @@ Elastic elasticClient = new Elastic(new HttpHost("localhost", port));
 Elastic elasticClient = new Elastic(List.of(new HttpHost("localhost", port)), Option.some("user"), Option.some("password"));
  
 //Create an index 
-CompletionStage<JsValue> indexCreationResponse = elasticClient.createIndex("monIndex", Json.obj());
+Future<JsValue> indexCreationResponse = elasticClient.createIndex("monIndex", Json.obj());
  
 //Create mapping 
-CompletionStage<JsValue> mappingCreation = elasticClient.createMapping("monIndex", "monType", Json.obj(
+Future<JsValue> mappingCreation = elasticClient.createMapping("monIndex", "monType", Json.obj(
         $("properties",
                 $("name", Json.obj(
                         $("type", "string"),
@@ -49,12 +49,12 @@ CompletionStage<JsValue> mappingCreation = elasticClient.createMapping("monIndex
 ));
 
 //Index a document 
-CompletionStage<IndexResponse> indexResult = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1"));
+Future<IndexResponse> indexResult = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1"));
 
 //Search 
-CompletionStage<SearchResponse> search = elasticClient.search(INDEX, TYPE, Json.obj($("query", $("match_all", Json.obj()))));
+Future<SearchResponse> search = elasticClient.search(INDEX, TYPE, Json.obj($("query", $("match_all", Json.obj()))));
 //and then convert data 
-CompletionStage<List<Person>> persons = search.thenApply( resp -> searchResponse.hits.hitsAs(Person.read));
+Future<List<Person>> persons = search.thenApply( resp -> searchResponse.hits.hitsAs(Person.read));
 
 
 //Bulk with Akka streams
