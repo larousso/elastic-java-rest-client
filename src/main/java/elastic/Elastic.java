@@ -162,7 +162,7 @@ public class Elastic implements Closeable {
                 Case($Some($()), id -> {
                     String p = basePath + "/" + id;
                     if(Boolean.TRUE.equals(create)) {
-                        p = p + "_create";
+                        p = p + "/_create";
                     }
                     return put(p, data, queryMap);
                 }),
