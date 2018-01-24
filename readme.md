@@ -9,8 +9,6 @@
 
 Wrapper around elastic rest client with support for Akka streams, javaslang et JsonLibJavasLang. 
 
-https://travis-ci.org/larousso/elastic-java-rest-client.svg?branch=master
-
 ## Installation 
 
 ### Repository :
@@ -20,9 +18,6 @@ repositories {
     mavenCentral()
     maven {
         url 'https://raw.githubusercontent.com/larousso/elastic-java-rest-client/master/repository/releases/'
-    }
-    flatDir {
-        dirs 'libs'
     }
 }
 ```
@@ -77,3 +72,9 @@ java.util.List<BulkResponse> response = Source
 
 
  ```
+ 
+## Release 
+
+```bash
+./gradlew release -PreleaseVersion=x.x.x 
+```
