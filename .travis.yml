@@ -11,7 +11,7 @@ deploy:
   on:
     tags: true
 script:
-  _ ./gradlew test
+  - ./gradlew test
 cache:
   directories:
   - "$HOME/.gradle/caches/"
