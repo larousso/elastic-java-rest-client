@@ -6,7 +6,7 @@ before_cache:
 - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
 deploy:
   provider: script
-  script: ./gradlew bintrayUpload
+  script: ./deploy.sh
   skip_cleanup: true
   on:
     tags: true
