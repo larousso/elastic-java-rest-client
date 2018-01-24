@@ -111,13 +111,6 @@ publishing {
             version "${project.version}"
             artifact sourcesJar
             artifact javadocJar
-            pom.withXml {
-                def root = asNode()
-                root.appendNode('description', 'Elasticsearch REST client')
-                root.appendNode('name', 'elastic-java-rest-client')
-                root.appendNode('url', "${scm}")
-                root.children().last() + pomConfig
-            }
         }
     }
 }
