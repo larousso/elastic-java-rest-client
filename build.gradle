@@ -7,7 +7,7 @@ buildscript {
 }
 
 plugins {
-    id "com.jfrog.bintray" version "1.7.3"
+    id "com.jfrog.bintray" version "1.7"
     id "maven-publish"
     id "java"
     id 'ch.netzwerg.release' version '1.2.5'
@@ -106,11 +106,11 @@ publishing {
     publications {
         mavenPublication(MavenPublication) {
             from components.java
-            artifact sourcesJar
-            artifact javadocJar
             groupId "${group}"
             artifactId "${jar.baseName}"
             version "${project.version}"
+            artifact sourcesJar
+            artifact javadocJar
             pom.withXml {
                 def root = asNode()
                 root.appendNode('description', 'Elasticsearch REST client')
