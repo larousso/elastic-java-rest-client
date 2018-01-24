@@ -8,6 +8,7 @@ buildscript {
 
 plugins {
     id "com.jfrog.bintray" version "1.7"
+    id "maven"
     id "maven-publish"
     id "java"
     id 'ch.netzwerg.release' version '1.2.5'
@@ -86,8 +87,8 @@ publishing {
     publications {
         mavenPublication(MavenPublication) {
             from components.java
-            groupId "${group}"
-            artifactId "${jar.baseName}"
+            groupId 'com.adelegue'
+            artifactId 'elastic-java-rest-client'
             version "${project.version}"
             artifact sourcesJar
             artifact javadocJar
