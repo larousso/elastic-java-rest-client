@@ -74,9 +74,11 @@ bintray {
     key = System.getenv('BINTRAY_PASSWORD')
     publications = ['mavenPublication']
     pkg {
+        name = 'elastic-java-rest-client'
         repo = 'maven'
         licenses = ['Apache-2.0']
         vcsUrl = 'https://github.com/larousso/elastic-java-rest-client.git'
+        publish = true
         version {
             name = "${project.version}"
         }
