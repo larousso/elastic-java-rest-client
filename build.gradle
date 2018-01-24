@@ -3,12 +3,6 @@ buildscript {
         mavenLocal()
         mavenCentral()
         jcenter()
-        maven {
-            url 'http://maven.tmatesoft.com/content/repositories/releases/'
-        }
-    }
-    dependencies {
-        classpath 'au.com.ish.gradle:release:2.2.2'
     }
 }
 
@@ -16,22 +10,17 @@ plugins {
     id "com.jfrog.bintray" version "1.7.3"
     id "maven-publish"
     id "java"
+    id 'ch.netzwerg.release' version '1.2.5'
 }
 
 sourceCompatibility = 1.8
-
-apply plugin: 'java'
-apply plugin: 'idea'
-apply plugin: 'release'
-
 
 def akkaVersion = "2.5.3"
 def scalaVersion = "2.12"
 def scm = "https://github.com/larousso/elastic-java-rest-client"
 
 group 'com.adelegue'
-//version =  '2.0.2-SNAPSHOT'
-version =  release.projectVersion
+version =  '2.0.2-SNAPSHOT'
 
 jar {
     baseName = 'elastic-java-rest-client'
@@ -135,8 +124,8 @@ publishing {
 }
 
 release {
-    failOnSnapshotDependencies = true
-    allowLocalModifications = false
-    releaseDryRun = false
-    scm = 'git'
+    dependsOn build
+    push = true
+    versionSuffix = '-SNAPSHOT' // '.DEV' or '' (empty) could be useful alternatives
+    tagPrefix = 'v' // 'r' or '' (empty) could be useful alternatives
 }
