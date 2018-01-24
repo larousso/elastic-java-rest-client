@@ -1,6 +1,15 @@
 # Elastic java client
 
+[travis]:                https://travis-ci.org/larousso/elastic-java-rest-client
+[travis-badge]:          https://travis-ci.org/larousso/elastic-java-rest-client.svg?branch=master
+[bintray]:               https://bintray.com/larousso/maven/elastic-java-rest-client
+[bintray-badge]:         https://img.shields.io/bintray/v/larousso/maven/elastic-java-rest-client.svg?maxAge=2592000
+
+[![travis-badge][]][travis] [![bintray-badge][]][bintray]
+
 Wrapper around elastic rest client with support for Akka streams, javaslang et JsonLibJavasLang. 
+
+https://travis-ci.org/larousso/elastic-java-rest-client.svg?branch=master
 
 ## Installation 
 
