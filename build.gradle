@@ -1,12 +1,28 @@
 buildscript {
     repositories {
+        mavenLocal()
         mavenCentral()
+        jcenter()
     }
 }
+
+plugins {
+    id "com.jfrog.bintray" version "1.7.3"
+    id "maven-publish"
+    id "java"
+}
+
+sourceCompatibility = 1.8
+
 
 apply plugin: 'java'
 apply plugin: 'idea'
 apply plugin: 'maven-publish'
+
+
+def akkaVersion = "2.5.3"
+def scalaVersion = "2.12"
+def scm = "https://github.com/larousso/elastic-java-rest-client"
 
 group 'com.adelegue'
 version =  '2.0.2-SNAPSHOT'
@@ -19,24 +35,18 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 repositories {
+    mavenLocal()
     mavenCentral()
+    jcenter()
     maven {
         url 'https://raw.githubusercontent.com/mathieuancelin/json-lib-javaslang/master/repository/releases/'
     }
-    flatDir {
-        dirs 'libs'
-    }
 }
-
-def akkaVersion = "2.5.3"
-def scalaVersion = "2.12"
-
 
 dependencies {
     compile('io.vavr:vavr:0.9.0')
     compile("com.typesafe.akka:akka-stream_${scalaVersion}:${akkaVersion}")
     compile("org.reactivecouchbase:json-lib-javaslang:2.0.0")
-    //compile("io.javaslang:javaslang-jackson:2.0.5")
     compile("org.elasticsearch.client:rest:5.5.0")
     testCompile("com.typesafe.akka:akka-testkit_${scalaVersion}:${akkaVersion}")
     testCompile("org.elasticsearch:elasticsearch:5.5.0")
@@ -50,18 +60,70 @@ dependencies {
     testCompile("org.apache.logging.log4j:log4j-core:2.8.2")
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            from components.java
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+javadoc.failOnError = false
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+artifacts {
+    archives sourcesJar
+    archives javadocJar
+}
+
+bintray {
+    user = System.getenv('BINTRAY_USER')
+    key = System.getenv('BINTRAY_PASSWORD')
+    publications = ['mavenPublication']
+    pkg {
+        repo = 'maven'
+        licenses = ['Apache-2.0']
+        vcsUrl = 'https://github.com/larousso/elastic-java-rest-client.git'
+        version {
+            name = "${version}"
         }
     }
 }
 
+def pomConfig = {
+    licenses {
+        license {
+            name "The Apache Software License, Version 2.0"
+            url "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            distribution "maven"
+        }
+    }
+    developers {
+        developer {
+            id "adelegue"
+            name "Alexandre Delègue"
+            email "aadelegue@gmail.com"
+        }
+    }
+    scm {
+        url "${scm}.git"
+    }
+}
+
 publishing {
-    repositories {
-        maven {
-            url version.contains("SNAPSHOT") ? "$buildDir/../repository/snapshots" : "$buildDir/../repository/releases"
+    publications {
+        mavenPublication(MavenPublication) {
+            from components.java
+            artifact sourcesJar
+            artifact javadocJar
+            groupId "${group}"
+            artifactId "${jar.baseName}"
+            version "${version}"
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('description', 'Elasticsearch REST client')
+                root.appendNode('name', 'elastic-java-rest-client')
+                root.appendNode('url', "${scm}")
+                root.children().last() + pomConfig
+            }
         }
     }
 }
