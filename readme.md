@@ -15,10 +15,8 @@ Wrapper around elastic rest client with support for Akka streams, javaslang et J
 
 ```groovy
 repositories {
-    mavenCentral()
-    maven {
-        url 'https://raw.githubusercontent.com/larousso/elastic-java-rest-client/master/repository/releases/'
-    }
+    jcenter()
+    mavenCentral()   
 }
 ```
 
@@ -26,7 +24,7 @@ repositories {
 
 ```groovy
 dependencies {
-    compile("com.adelegue:elastic-java-rest-client:2.0.1")
+    compile("com.adelegue:elastic-java-rest-client:2.0.3")
 }
 ```
 
