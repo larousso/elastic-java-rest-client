@@ -22,10 +22,9 @@ import akka.actor.ActorSystem;
 import akka.japi.pf.FI;
 import akka.japi.pf.Match;
 import akka.japi.pf.PFBuilder;
-import akka.stream.ActorMaterializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
-import akka.testkit.JavaTestKit;
+import akka.testkit.javadsl.TestKit;
 import akka.testkit.SocketUtil;
 import elastic.request.BulkItem;
 import elastic.response.BulkResponse;
@@ -69,7 +68,7 @@ public class ElasticTest {
 	public static void cleanUp() throws IOException {
 		elasticClient.close();
 		nodeStarter.closeNode();
-		JavaTestKit.shutdownActorSystem(system);
+		TestKit.shutdownActorSystem(system);
 	}
 
 	@Test
@@ -156,7 +155,7 @@ public class ElasticTest {
 		createIndexWithMapping();
 		java.util.List<BulkResponse> response = Source.range(1, 500)
 				.map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i))).via(elasticClient.bulk(5, 2))
-				.runWith(Sink.seq(), ActorMaterializer.create(system)).toCompletableFuture().get();
+				.runWith(Sink.seq(), system).toCompletableFuture().get();
 
 		assertThat(response).hasSize(100);
 		elasticClient.refresh(INDEX).get();
@@ -170,7 +169,7 @@ public class ElasticTest {
 		createIndexWithMapping();
 		java.util.List<BulkResponse> responses = Source.range(1, 10).concat(Source.range(1, 10))
 				.map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
-				.via(elasticClient.bulk(20, FiniteDuration.create(1, TimeUnit.SECONDS), 2)).runWith(Sink.seq(), ActorMaterializer.create(system))
+				.via(elasticClient.bulk(20, FiniteDuration.create(1, TimeUnit.SECONDS), 2)).runWith(Sink.seq(), system)
 				.toCompletableFuture().get();
 
 		assertThat(responses).hasSize(1);
@@ -190,7 +189,7 @@ public class ElasticTest {
 		java.util.List<Either<Elastic.BulkFailure, BulkResponse>> response = Source.range(1, 500)
 				.map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
 				.via(elasticClient.bulkWithRetry(5, 2, 2, FiniteDuration.create(1, TimeUnit.SECONDS), Elastic.RetryMode.LineareLatency))
-				.runWith(Sink.seq(), ActorMaterializer.create(system)).toCompletableFuture().get();
+				.runWith(Sink.seq(), system).toCompletableFuture().get();
 
 		assertThat(response).hasSize(100);
 		elasticClient.refresh(INDEX).get();
@@ -208,7 +207,7 @@ public class ElasticTest {
 				.map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
 				.via(elasticClient.bulkWithRetry(5, 1, 2, FiniteDuration.create(1, TimeUnit.SECONDS), Elastic.RetryMode.ExponentialLatency,
 						pair -> pair._1.isFailure() || (pair._1.isSuccess() && pair._1.get().errors)))
-				.runWith(Sink.seq(), ActorMaterializer.create(system)).toCompletableFuture().get();
+				.runWith(Sink.seq(), system).toCompletableFuture().get();
 
 		Long stop = System.currentTimeMillis();
 

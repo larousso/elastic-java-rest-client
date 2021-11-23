@@ -39,7 +39,7 @@ public class GetResponse {
             Option.of(response._version).map(n -> $("_version", n)),
             Option.of(response.found).map(n -> $("found", n)),
             Option.of($("_source", response._source))
-    ).flatMap(e -> e).toJavaArray(JsPair.class));
+    ).flatMap(e -> e).toJavaArray(JsPair[]::new));
 
     public final String _index;
 

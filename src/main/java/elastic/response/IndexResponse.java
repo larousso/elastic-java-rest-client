@@ -37,7 +37,7 @@ public class IndexResponse {
             Option.of(response.created).map(n -> $("created", n)),
             Option.of(response.found).map(n -> $("found", n)),
             Option.of($("_shards", response._shards))
-    ).flatMap(e -> e).toJavaArray(JsPair.class));
+    ).flatMap(e -> e).toJavaArray(JsPair[]::new));
 
     public final String _index;
 

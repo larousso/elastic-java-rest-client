@@ -51,6 +51,7 @@ import io.vavr.concurrent.Promise;
 import io.vavr.control.Either;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
+import scala.compat.java8.DurationConverters;
 import scala.concurrent.duration.FiniteDuration;
 
 public class Elastic implements Closeable {
@@ -70,7 +71,7 @@ public class Elastic implements Closeable {
     }
 
     public Elastic(Settings settings) {
-        RestClientBuilder restClientBuilder = RestClient.builder(settings.hosts.toJavaArray(HttpHost.class))
+        RestClientBuilder restClientBuilder = RestClient.builder(settings.hosts.toJavaArray(HttpHost[]::new))
                 .setRequestConfigCallback(requestConfigBuilder ->
                         requestConfigBuilder.setConnectTimeout(settings.connectionTimeout).setSocketTimeout(settings.socketTimeout)
                 ).setMaxRetryTimeoutMillis(settings.maxRetryTimeout);
@@ -426,7 +427,7 @@ public class Elastic implements Closeable {
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
         } else {
-            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
+            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, DurationConverters.toJava(within));
         }
         return windows.mapAsync(parallelisation, elt -> this.oneBulk(elt).toCompletableFuture()).map(p -> p._1.get());
     }
@@ -445,7 +446,7 @@ public class Elastic implements Closeable {
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
         } else {
-            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
+            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, DurationConverters.toJava(within));
         }
         return windows.mapAsync(parallelisation, i -> this.oneBulk(index, type, i).toCompletableFuture()).map(p -> p._1.get());
     }
@@ -471,7 +472,7 @@ public class Elastic implements Closeable {
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
         } else {
-            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
+            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, DurationConverters.toJava(within));
         }
         return windows
                 .flatMapMerge(parallelism, e ->
@@ -506,7 +507,7 @@ public class Elastic implements Closeable {
         if(within == null) {
             windows =  Flow.<BulkItem>create().filter(Objects::nonNull).grouped(batchSize);
         } else {
-            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, within);
+            windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, DurationConverters.toJava(within));
         }
         return windows
                 .flatMapMerge(parallelism, e ->
@@ -538,9 +539,9 @@ public class Elastic implements Closeable {
 
         Flow<Integer, Integer, NotUsed> latencyFlow;
         if (retryMode == RetryMode.ExponentialLatency) {
-            latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> i, ThrottleMode.shaping());
+            latencyFlow = Flow.<Integer>create().throttle(1, DurationConverters.toJava(latency), 1, i -> i, ThrottleMode.shaping());
         } else if (retryMode == RetryMode.LineareLatency) {
-            latencyFlow = Flow.<Integer>create().throttle(1, latency, 1, i -> 1, ThrottleMode.shaping());
+            latencyFlow = Flow.<Integer>create().throttle(1, DurationConverters.toJava(latency), 1, i -> 1, ThrottleMode.shaping());
         } else {
             latencyFlow = Flow.create();
         }
@@ -550,7 +551,7 @@ public class Elastic implements Closeable {
                 .via(Flows.mapAsync(any -> oneBulkInternal(items, path).toCompletableFuture()))
                 .filterNot(isError)
                 .take(1)
-                .orElse(Source.lazily(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items).toCompletableFuture())))
+                .orElse(Source.lazySource(() -> Source.single(nbRetry + 1).via(latencyFlow).mapAsync(1, any -> oneBulk(items).toCompletableFuture())))
                 .map(r -> {
                     if(isError.test(r)) {
                         return Match(r._1).of(

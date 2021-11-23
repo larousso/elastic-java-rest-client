@@ -43,7 +43,7 @@ public class SearchResponse {
                 Option.of(response.status).map(n -> $("status", n)),
                 Option.of(response.error).map(n -> $("error", n))
         ).flatMap(e -> e);
-        return Json.obj(jsPairs.toJavaArray(JsPair.class));
+        return Json.obj(jsPairs.toJavaArray(JsPair[]::new));
     };
 
 
@@ -109,7 +109,7 @@ public class SearchResponse {
                 Option.of(hits.max_score).map(n -> $("max_score", n)),
                 Option.of($("hits", Json.arr(hits.hits.toJavaArray())))
             ).flatMap(e -> e);
-            return Json.obj(fields.toJavaArray(JsPair.class));
+            return Json.obj(fields.toJavaArray(JsPair[]::new));
         };
 
         public Long total;

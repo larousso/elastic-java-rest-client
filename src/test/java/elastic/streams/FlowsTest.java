@@ -1,7 +1,6 @@
 package elastic.streams;
 
 import akka.actor.ActorSystem;
-import akka.stream.ActorMaterializer;
 import akka.stream.javadsl.Sink;
 import akka.stream.javadsl.Source;
 import org.junit.Test;
@@ -27,7 +26,7 @@ public class FlowsTest {
                     System.out.println("i : "+i);
                     return i;
                 })
-                .runWith(Sink.seq(), ActorMaterializer.create(ActorSystem.create()))
+                .runWith(Sink.seq(), ActorSystem.create())
                 .toCompletableFuture()
                 .get();
 
@@ -43,9 +42,9 @@ public class FlowsTest {
                     i.incrementAndGet();
                     return e;
                 })))
-                .filter(any -> true)
                 .take(1)
-                .runWith(Sink.seq(), ActorMaterializer.create(ActorSystem.create()))
+                .filter(any -> true)
+                .runWith(Sink.seq(), ActorSystem.create())
                 .toCompletableFuture().get();
         assertThat(integers).contains(1);
         assertThat(i.get()).isEqualTo(1);

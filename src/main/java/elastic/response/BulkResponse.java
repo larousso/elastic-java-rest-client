@@ -168,7 +168,7 @@ public class BulkResponse {
                 Option.of(result.created).map(n -> $("created", n)),
                 Option.of(result._shards).map(n -> $("_shards", n)),
                 Option.of($("error", result.error))
-        ).flatMap(e -> e).toJavaArray(JsPair.class));
+        ).flatMap(e -> e).toJavaArray(JsPair[]::new));
 
         public final String _index;
         public final String _type;
