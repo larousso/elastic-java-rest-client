@@ -28,36 +28,29 @@ public class ElasticType {
 
     private final String index;
 
-    private final String type;
-
-    ElasticType(Elastic elastic, String index, String type) {
+    ElasticType(Elastic elastic, String index) {
         this.elastic = elastic;
         this.index = index;
-        this.type = type;
     }
 
     public String getIndexName() {
         return index;
     }
 
-    public String getTypeName() {
-        return type;
-    }
-
     public Future<SearchResponse> search(JsValue query) {
-        return elastic.search(index, type, query);
+        return elastic.search(index, query);
     }
 
     public Future<IndexResponse> index(JsValue data, Option<String> mayBeId) {
-        return elastic.index(index, type, data, mayBeId);
+        return elastic.index(index, data, mayBeId);
     }
 
     public Future<IndexResponse> index(JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
-        return elastic.index(index, type, data, mayBeId, create, parent, refresh);
+        return elastic.index(index, data, mayBeId, create, parent, refresh);
     }
 
     public Future<JsValue> delete(String id) {
-        return elastic.delete(index, type, id);
+        return elastic.delete(index, id);
     }
 
     public Future<JsValue> getIndex() {
@@ -65,7 +58,7 @@ public class ElasticType {
     }
 
     public Future<JsValue> getMapping() {
-        return elastic.getMapping(index, type);
+        return elastic.getMapping(index);
     }
 
     public Future<JsValue> getSettings() {
@@ -97,7 +90,7 @@ public class ElasticType {
     }
 
     public Future<Long> count() {
-        return elastic.count(index, type);
+        return elastic.count(index);
     }
 
     public Future<JsValue> refresh() {
@@ -109,39 +102,39 @@ public class ElasticType {
     }
 
     public Source<SearchResponse, NotUsed> scroll(JsValue query, String scrollTime) {
-        return elastic.scroll(index, type, query, scrollTime);
+        return elastic.scroll(index, query, scrollTime);
     }
 
     public Future<Tuple2<Try<BulkResponse>, Response>> oneBulk(java.util.List<BulkItem> items) {
-        return elastic.oneBulk(index, type, items);
+        return elastic.oneBulk(index, items);
     }
 
     public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, Integer parallelisation) {
-        return elastic.bulk(index, type, batchSize, null, parallelisation);
+        return elastic.bulk(index, batchSize, null, parallelisation);
     }
 
     public Flow<BulkItem, BulkResponse, NotUsed> bulk(Integer batchSize, FiniteDuration within, Integer parallelisation) {
-        return elastic.bulk(index, type, batchSize, within, parallelisation);
+        return elastic.bulk(index, batchSize, within, parallelisation);
     }
 
     public Source<Either<Elastic.BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetry(java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, Elastic.RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
-        return elastic.oneBulkWithRetry(index, type, items, nbRetry, latency, retryMode, isError);
+        return elastic.oneBulkWithRetry(index, items, nbRetry, latency, retryMode, isError);
     }
 
     public Flow<BulkItem, Either<Elastic.BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, Elastic.RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
-        return elastic.bulkWithRetry(index, type, batchSize, within, parallelism, nbRetry, latency, retryMode, isError);
+        return elastic.bulkWithRetry(index, batchSize, within, parallelism, nbRetry, latency, retryMode, isError);
     }
 
-    public Flow<BulkItem, Either<Elastic.BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, Elastic.RetryMode retryMode) {
-        return elastic.bulkWithRetry(index, type, batchSize, within, parallelism, nbRetry, latency, retryMode);
+    public Flow<BulkItem, Either<Elastic.BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, Elastic.RetryMode retryMode) {
+        return elastic.bulkWithRetry(index, batchSize, within, parallelism, nbRetry, latency, retryMode);
     }
 
     public Flow<BulkItem, Either<Elastic.BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, Elastic.RetryMode retryMode) {
-        return elastic.bulkWithRetry(index, type, batchSize, null, parallelism, nbRetry, latency, retryMode);
+        return elastic.bulkWithRetry(index, batchSize, null, parallelism, nbRetry, latency, retryMode);
     }
 
     public Flow<BulkItem, Either<Elastic.BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, Elastic.RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
-        return elastic.bulkWithRetry(index, type, batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
+        return elastic.bulkWithRetry(index, batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
     }
 
     public Future<JsValue> deleteIndex() {

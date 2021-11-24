@@ -8,14 +8,11 @@ import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.UUID;
+import java.util.*;
 
 import io.vavr.control.Try;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.core.TimeValue;
 import org.elasticsearch.index.reindex.ReindexPlugin;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.InternalSettingsPreparer;
@@ -46,7 +43,7 @@ public class NodeStarter {
         Node node = new MyNode(Settings.builder()
                     .put("path.home", homePath)
                     .put("http.port", httpPort)
-                    .put("http.enabled", "true")
+//                    .put("http.enabled", "true")
                     .put("transport.type", "netty4")
                     .put("http.type", "netty4")
                     .build(),
@@ -84,7 +81,7 @@ public class NodeStarter {
 
     private static class MyNode extends Node {
         public MyNode(Settings preparedSettings, Collection<Class<? extends Plugin>> classpathPlugins) {
-            super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, null), classpathPlugins);
+            super(InternalSettingsPreparer.prepareEnvironment(preparedSettings, Collections.emptyMap(), null, () -> "mynode"), classpathPlugins, true);
         }
     }
 }

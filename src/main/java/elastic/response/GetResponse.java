@@ -21,7 +21,6 @@ public class GetResponse {
         try {
             return JsResult.success(new GetResponse(
                     json.field("_index").asOptString().getOrElse(() -> null),
-                    json.field("_type").asOptString().getOrElse(() -> null),
                     json.field("_id").asOptString().getOrElse(() -> null),
                     json.field("_version").asOptInteger().getOrElse(() -> null),
                     json.field("found").asOptBoolean().getOrElse(() -> null),
@@ -34,7 +33,6 @@ public class GetResponse {
 
     public static final Writer<GetResponse> writes = response -> Json.obj(List.of(
             Option.of(response._index).map(n -> $("_index", n)),
-            Option.of(response._type).map(n -> $("_type", n)),
             Option.of(response._id).map(n -> $("_id", n)),
             Option.of(response._version).map(n -> $("_version", n)),
             Option.of(response.found).map(n -> $("found", n)),
@@ -42,8 +40,6 @@ public class GetResponse {
     ).flatMap(e -> e).toJavaArray(JsPair[]::new));
 
     public final String _index;
-
-    public final String _type;
 
     public final String _id;
 
@@ -53,9 +49,8 @@ public class GetResponse {
 
     public final JsValue _source;
 
-    public GetResponse(String _index, String _type, String _id, Integer _version, Boolean found, JsValue _source) {
+    public GetResponse(String _index, String _id, Integer _version, Boolean found, JsValue _source) {
         this._index = _index;
-        this._type = _type;
         this._id = _id;
         this._version = _version;
         this.found = found;
@@ -82,7 +77,6 @@ public class GetResponse {
     public String toString() {
         final StringBuffer sb = new StringBuffer("GetResponse{");
         sb.append("_index='").append(_index).append('\'');
-        sb.append(", _type='").append(_type).append('\'');
         sb.append(", _id='").append(_id).append('\'');
         sb.append(", _version=").append(_version);
         sb.append(", found=").append(found);

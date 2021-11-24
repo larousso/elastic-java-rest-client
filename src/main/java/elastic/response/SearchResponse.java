@@ -94,7 +94,7 @@ public class SearchResponse {
         public static final Reader<Hits> reads = json -> {
             try {
                 return JsResult.success(new Hits(
-                        json.field("total").asOptLong().getOrElse(() -> null),
+                        json.object("total").field("value").asOptLong().getOrElse(() -> null),
                         json.field("max_score").asOptInteger().getOrElse(() -> null),
                         List.ofAll(json.field("hits").asArray())
                 ));
@@ -105,7 +105,7 @@ public class SearchResponse {
 
         public static final Writer<Hits> writes = hits -> {
             List<JsPair> fields = List.of(
-                Option.of(hits.total).map(n -> $("total", n)),
+                Option.of(hits.total).map(n -> $("total", $("value", n))),
                 Option.of(hits.max_score).map(n -> $("max_score", n)),
                 Option.of($("hits", Json.arr(hits.hits.toJavaArray())))
             ).flatMap(e -> e);

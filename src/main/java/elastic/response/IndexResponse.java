@@ -17,11 +17,9 @@ public class IndexResponse {
         try {
             return JsResult.success(new IndexResponse(
                     json.field("_index").asOptString().getOrElse((String)null),
-                    json.field("_type").asOptString().getOrElse((String)null),
                     json.field("_id").asOptString().getOrElse((String)null),
                     json.field("_version").asInteger(),
-                    json.field("created").asBoolean(),
-                    json.field("found").asOptBoolean().getOrElse((Boolean) null),
+                    json.field("result").asOptString().getOrElse((String) null),
                     json.field("_shards")
             ));
         } catch (Exception e) {
@@ -31,35 +29,27 @@ public class IndexResponse {
 
     public static final Writer<IndexResponse> writes = response -> Json.obj(List.of(
             Option.of(response._index).map(n -> $("_index", n)),
-            Option.of(response._type).map(n -> $("_type", n)),
             Option.of(response._id).map(n -> $("_id", n)),
             Option.of(response._version).map(n -> $("_version", n)),
-            Option.of(response.created).map(n -> $("created", n)),
-            Option.of(response.found).map(n -> $("found", n)),
+            Option.of(response.result).map(n -> $("result", n)),
             Option.of($("_shards", response._shards))
     ).flatMap(e -> e).toJavaArray(JsPair[]::new));
 
     public final String _index;
 
-    public final String _type;
-
     public final String _id;
 
     public final Integer _version;
 
-    public final Boolean created;
-
-    public final Boolean found;
+    public final String result;
 
     public final JsValue _shards;
 
-    public IndexResponse(String _index, String _type, String _id, Integer _version, Boolean created, Boolean found, JsValue _shards) {
+    public IndexResponse(String _index, String _id, Integer _version, String result, JsValue _shards) {
         this._index = _index;
-        this._type = _type;
         this._id = _id;
         this._version = _version;
-        this.created = created;
-        this.found = found;
+        this.result = result;
         this._shards = _shards;
     }
 
@@ -68,11 +58,9 @@ public class IndexResponse {
         final StringBuffer sb = new StringBuffer("IndexResponse{");
         sb.append("_shards=").append(_shards);
         sb.append(", _index='").append(_index).append('\'');
-        sb.append(", _type='").append(_type).append('\'');
         sb.append(", _id='").append(_id).append('\'');
         sb.append(", _version=").append(_version);
-        sb.append(", created=").append(created);
-        sb.append(", found=").append(found);
+        sb.append(", result=").append(result);
         sb.append('}');
         return sb.toString();
     }

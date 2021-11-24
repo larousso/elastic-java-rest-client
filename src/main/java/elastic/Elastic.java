@@ -74,7 +74,7 @@ public class Elastic implements Closeable {
         RestClientBuilder restClientBuilder = RestClient.builder(settings.hosts.toJavaArray(HttpHost[]::new))
                 .setRequestConfigCallback(requestConfigBuilder ->
                         requestConfigBuilder.setConnectTimeout(settings.connectionTimeout).setSocketTimeout(settings.socketTimeout)
-                ).setMaxRetryTimeoutMillis(settings.maxRetryTimeout);
+                );
 
         Option<Tuple2<String, String>> usernameAndPassword = settings.username.flatMap(u ->
                 settings.password.map(p -> Tuple.of(u, p))
@@ -100,57 +100,47 @@ public class Elastic implements Closeable {
         this.restClient.close();
     }
 
-    public ElasticType type(String index, String type) {
-        return new ElasticType(this, index, type);
+    public ElasticType type(String index) {
+        return new ElasticType(this, index);
     }
 
-    public Future<GetResponse> get(String index, String type, String id) {
+    public Future<GetResponse> get(String index, String id) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(id, "Id is null");
-        String path = List.of(index, type, id).mkString("/");
+        String path = List.of(index, "_doc", id).mkString("/");
         return get(path)
                 .flatMap(convert(GetResponse.reads));
     }
 
     public Future<SearchResponse> search(JsValue query) {
         Objects.requireNonNull(query, "Query is null");
-        return search(Option.none(), Option.none(), query);
+        return search(Option.none(), query);
     }
 
     public Future<SearchResponse> search(String index, JsValue query) {
         Objects.requireNonNull(index, "Index is null");
         Objects.requireNonNull(query, "Query is null");
-        return search(Option.of(index), Option.none(), query);
+        return search(Option.of(index), query);
     }
 
-    public Future<SearchResponse> search(String index, String type, JsValue query) {
+    public Future<SearchResponse> search(Option<String> index, JsValue query) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(query, "Query is null");
-        return search(Option.of(index), Option.of(type), query);
-    }
-
-    public Future<SearchResponse> search(Option<String> index, Option<String> type, JsValue query) {
-        Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
-        Objects.requireNonNull(query, "Query is null");
-        String path = "/" + List.of(index, type, Option.of("_search")).flatMap(identity()).mkString("/");
+        String path = "/" + List.of(index, Option.of("_search")).flatMap(identity()).mkString("/");
         return post(path, query)
                 .flatMap(convert(SearchResponse.reads));
     }
 
-    public Future<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId) {
-        return index(index, type, data, mayBeId, Boolean.FALSE, null, null);
+    public Future<IndexResponse> index(String index, JsValue data, Option<String> mayBeId) {
+        return index(index, data, mayBeId, Boolean.FALSE, null, null);
     }
 
-    public Future<IndexResponse> index(String index, String type, JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
+    public Future<IndexResponse> index(String index, JsValue data, Option<String> mayBeId, Boolean create, String parent, Boolean refresh) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(data, "Data is null");
         Objects.requireNonNull(mayBeId, "Id is null");
         //@formatter:off
-        String basePath = "/" + index + "/" + type;
+        String basePath = "/" + index;
 
         List<Tuple2<String, String>> entries = List.of(
                 Option.of(refresh).filter(Boolean.TRUE::equals).map(any -> Tuple.of("refresh", "true")),
@@ -161,7 +151,7 @@ public class Elastic implements Closeable {
 
         return Match(mayBeId).of(
                 Case($Some($()), id -> {
-                    String p = basePath + "/" + id;
+                    String p = basePath + "/_doc/" + id;
                     if(Boolean.TRUE.equals(create)) {
                         p = p + "/_create";
                     }
@@ -174,11 +164,10 @@ public class Elastic implements Closeable {
     }
 
 
-    public Future<JsValue> delete(String index, String type, String id) {
+    public Future<JsValue> delete(String index, String id) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(id, "id is null");
-        return delete("/" + index  + "/" + type + "/" + id);
+        return delete("/" + index  + "/" + id);
     }
 
 
@@ -201,19 +190,17 @@ public class Elastic implements Closeable {
                 .flatMap(handleError());
     }
 
-    public Future<JsValue> createMapping(String index, String type, JsValue mapping) {
+    public Future<JsValue> createMapping(String index, JsValue mapping) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(mapping, "Mapping is null");
-        String path = "/" + List.of(index, "_mapping", type).mkString("/");
+        String path = "/" + List.of(index, "_mapping").mkString("/");
         return put(path, mapping)
                 .flatMap(handleError());
     }
 
-    public Future<JsValue> getMapping(String index, String type) {
+    public Future<JsValue> getMapping(String index) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
-        String path = "/" + List.of(index, "_mapping", type).mkString("/");
+        String path = "/" + List.of(index, "_mapping").mkString("/");
         return get(path)
                 .flatMap(handleError());
     }
@@ -236,14 +223,6 @@ public class Elastic implements Closeable {
         String path = "/" + index;
         return headStatus(path).map(exists());
     }
-
-    public Future<Boolean> mappingExists(String index, String type) {
-        Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
-        String path = "/" + index + "/_mapping/" + type;
-        return headStatus(path).map(exists());
-    }
-
 
     public Future<JsValue> getAliases() {
         String path = "/_alias";
@@ -319,30 +298,22 @@ public class Elastic implements Closeable {
     }
 
     public Future<Long> count() {
-        return count(Option.none(), Option.none());
+        return count(Option.none());
     }
 
     public Future<Long> count(String index) {
         Objects.requireNonNull(index, "Index is null");
-        return count(Option.of(index), Option.none());
+        return count(Option.of(index));
     }
 
-    public Future<Long> count(String index, String type) {
+    public Future<Long> count(Option<String> index) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
-        return count(Option.of(index), Option.of(type));
-    }
-
-    public Future<Long> count(Option<String> index, Option<String> type) {
-        Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
-        return search(index, type, Json.obj()
+        return search(index, Json.obj()
                 .with("size", 0)
                 .with("query", Json.obj()
                         .with("match_all", Json.obj())
                 )
-        )
-                .map(searchResponse -> searchResponse.hits.total);
+        ).map(searchResponse -> searchResponse.hits.total);
     }
 
     public Future<JsValue> refresh() {
@@ -383,15 +354,14 @@ public class Elastic implements Closeable {
     }
 
 
-    public Source<SearchResponse, NotUsed> scroll(String index, String type, JsValue searchQuery, String scrollTime) {
+    public Source<SearchResponse, NotUsed> scroll(String index, JsValue searchQuery, String scrollTime) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(searchQuery, "searchQuery is null");
         Objects.requireNonNull(scrollTime, "scrollTime is null");
         //@formatter:off
         return Source
-                .fromCompletionStage(
-                        post("/"+index+"/"+type+"/_search", searchQuery, HashMap.of("scroll", scrollTime)).flatMap(convert(SearchResponse.reads)).toCompletableFuture()
+                .completionStage(
+                        post("/"+index+"/_search", searchQuery, HashMap.of("scroll", scrollTime)).flatMap(convert(SearchResponse.reads)).toCompletableFuture()
                 )
                 .flatMapConcat(resp ->
                         Source.single(resp).concat(Source.unfoldAsync(resp._scroll_id, id -> this.nextScroll(id, scrollTime).toCompletableFuture()))
@@ -433,13 +403,12 @@ public class Elastic implements Closeable {
     }
 
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulk(String index, String type, Integer batchSize, Integer parallelisation) {
-        return bulk(index, type, batchSize, null, parallelisation);
+    public Flow<BulkItem, BulkResponse, NotUsed> bulk(String index, Integer batchSize, Integer parallelisation) {
+        return bulk(index, batchSize, null, parallelisation);
     }
 
-    public Flow<BulkItem, BulkResponse, NotUsed> bulk(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelisation) {
+    public Flow<BulkItem, BulkResponse, NotUsed> bulk(String index, Integer batchSize, FiniteDuration within, Integer parallelisation) {
         Objects.requireNonNull(index, "Index is null");
-        Objects.requireNonNull(type, "Type is null");
         Objects.requireNonNull(batchSize, "batchSize is null");
         Objects.requireNonNull(parallelisation, "parallelisation is null");
         Flow<BulkItem, java.util.List<BulkItem>, NotUsed> windows;
@@ -448,7 +417,7 @@ public class Elastic implements Closeable {
         } else {
             windows = Flow.<BulkItem>create().filter(Objects::nonNull).groupedWithin(batchSize, DurationConverters.toJava(within));
         }
-        return windows.mapAsync(parallelisation, i -> this.oneBulk(index, type, i).toCompletableFuture()).map(p -> p._1.get());
+        return windows.mapAsync(parallelisation, i -> this.oneBulk(index, i).toCompletableFuture()).map(p -> p._1.get());
     }
 
     public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
@@ -485,17 +454,16 @@ public class Elastic implements Closeable {
     }
 
 
-    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
-        return bulkWithRetry(index, type, batchSize, null, parallelism, nbRetry, latency, retryMode);
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        return bulkWithRetry(index, batchSize, null, parallelism, nbRetry, latency, retryMode);
     }
 
-    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
-        return bulkWithRetry(index, type, batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, Integer batchSize, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        return bulkWithRetry(index, batchSize, null, parallelism, nbRetry, latency, retryMode, isError);
     }
 
-    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
         Objects.requireNonNull(index, "index is null");
-        Objects.requireNonNull(type, "type is null");
         Objects.requireNonNull(batchSize, "batchSize is null");
         Objects.requireNonNull(parallelism, "parallelism is null");
         Objects.requireNonNull(nbRetry, "nbRetry is null");
@@ -511,12 +479,12 @@ public class Elastic implements Closeable {
         }
         return windows
                 .flatMapMerge(parallelism, e ->
-                        oneBulkWithRetry(index , type, e, nbRetry, latency, retryMode, isError)
+                        oneBulkWithRetry(index , e, nbRetry, latency, retryMode, isError)
                 );
     }
 
-    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, String type, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
-        return bulkWithRetry(index, type, batchSize, within, parallelism, nbRetry, latency, retryMode, defaultIsBulkOnError());
+    public Flow<BulkItem, Either<BulkFailure, BulkResponse>, NotUsed> bulkWithRetry(String index, Integer batchSize, FiniteDuration within, Integer parallelism, Integer nbRetry, FiniteDuration latency, RetryMode retryMode) {
+        return bulkWithRetry(index, batchSize, within, parallelism, nbRetry, latency, retryMode, defaultIsBulkOnError());
     }
 
     private Predicate<Tuple2<Try<BulkResponse>, Response>> defaultIsBulkOnError() {
@@ -527,8 +495,8 @@ public class Elastic implements Closeable {
         return oneBulkWithRetryInternal("/_bulk", items, nbRetry, latency, retryMode, isError);
     }
 
-    public Source<Either<BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetry(String index, String type, java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
-        return oneBulkWithRetryInternal("/" + index + "/" + type + "/_bulk", items, nbRetry, latency, retryMode, isError);
+    public Source<Either<BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetry(String index, java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
+        return oneBulkWithRetryInternal("/" + index + "/_bulk", items, nbRetry, latency, retryMode, isError);
     }
 
     private Source<Either<BulkFailure, BulkResponse>, NotUsed> oneBulkWithRetryInternal(String path, java.util.List<BulkItem> items, Integer nbRetry, FiniteDuration latency, RetryMode retryMode, Predicate<Tuple2<Try<BulkResponse>, Response>> isError) {
@@ -573,8 +541,8 @@ public class Elastic implements Closeable {
     }
 
 
-    public Future<Tuple2<Try<BulkResponse>, Response>> oneBulk(String index, String type, java.util.List<BulkItem> items) {
-        String path = "/" + index + "/" + type + "/_bulk";
+    public Future<Tuple2<Try<BulkResponse>, Response>> oneBulk(String index, java.util.List<BulkItem> items) {
+        String path = "/" + index + "/_bulk";
         //@formatter:off
         return oneBulkInternal(items, path);
         //@formatter:on
@@ -765,12 +733,17 @@ public class Elastic implements Closeable {
     public Future<Response> rawRequest(String path, String verb, Option<String> body, Map<String, String> query) {
         return body.map(b -> {
             HttpEntity entity = new NStringEntity(b, ContentType.APPLICATION_JSON);
+            Request request = new Request(verb, path);
+            request.addParameters(query.toJavaMap());
+            request.setEntity(entity);
             EsResponseListener esResponseListener = new EsResponseListener();
-            restClient.performRequestAsync(verb, path, query.toJavaMap(), entity, esResponseListener);
+            restClient.performRequestAsync(request, esResponseListener);
             return esResponseListener.future();
         }).getOrElse(() -> {
+            Request request = new Request(verb, path);
+            request.addParameters(query.toJavaMap());
             EsResponseListener esResponseListener = new EsResponseListener();
-            restClient.performRequestAsync(verb, path, query.toJavaMap(), esResponseListener);
+            restClient.performRequestAsync(request, esResponseListener);
             return esResponseListener.future();
         });
     }

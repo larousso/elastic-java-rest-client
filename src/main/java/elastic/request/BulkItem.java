@@ -18,32 +18,32 @@ public class BulkItem {
         return new BulkItem(operation, source);
     }
 
-    public static BulkItem index(String _index, String _type, String _id, JsValue source) {
-        return item(BulkOperation.index(_index, _type, _id), source);
+    public static BulkItem index(String _index, String _id, JsValue source) {
+        return item(BulkOperation.index(_index, _id), source);
     }
 
     public static BulkItem index(String _id, JsValue source) {
         return item(BulkOperation.index(_id), source);
     }
 
-    public static BulkItem create(String _index, String _type, String _id, JsValue source) {
-        return item(BulkOperation.create(_index, _type, _id), source);
+    public static BulkItem create(String _index, String _id, JsValue source) {
+        return item(BulkOperation.create(_index, _id), source);
     }
 
     public static BulkItem create(String _id, JsValue source) {
         return item(BulkOperation.create(_id), source);
     }
 
-    public static BulkItem update(String _index, String _type, String _id, JsValue source) {
-        return item(BulkOperation.update(_index, _type, _id), source);
+    public static BulkItem update(String _index, String _id, JsValue source) {
+        return item(BulkOperation.update(_index, _id), source);
     }
 
     public static BulkItem update(String _id, JsValue source) {
         return item(BulkOperation.update(_id), source);
     }
 
-    public static BulkItem delete(String _index, String _type, String _id) {
-        return item(BulkOperation.delete(_index, _type, _id), null);
+    public static BulkItem delete(String _index, String _id) {
+        return item(BulkOperation.delete(_index, _id), null);
     }
 
     public static BulkItem delete(String _id) {
@@ -57,36 +57,36 @@ public class BulkItem {
         public final BulkOperationDetail update;
         public final BulkOperationDetail delete;
 
-        public static BulkOperation index(String _index, String _type, String _id) {
-            return new BulkOperation(new BulkOperationDetail(_index, _type, _id), null, null, null);
+        public static BulkOperation index(String _index, String _id) {
+            return new BulkOperation(new BulkOperationDetail(_index, _id), null, null, null);
         }
 
         public static BulkOperation index(String _id) {
-            return new BulkOperation(new BulkOperationDetail(null, null, _id), null, null, null);
+            return new BulkOperation(new BulkOperationDetail(null, _id), null, null, null);
         }
 
-        public static BulkOperation create(String _index, String _type, String _id) {
-            return new BulkOperation(null, new BulkOperationDetail(_index, _type, _id), null, null);
+        public static BulkOperation create(String _index, String _id) {
+            return new BulkOperation(null, new BulkOperationDetail(_index, _id), null, null);
         }
 
         public static BulkOperation create(String _id) {
-            return new BulkOperation(null, new BulkOperationDetail(null, null, _id), null, null);
+            return new BulkOperation(null, new BulkOperationDetail(null, _id), null, null);
         }
 
-        public static BulkOperation update(String _index, String _type, String _id) {
-            return new BulkOperation(null, null, new BulkOperationDetail(_index, _type, _id), null);
+        public static BulkOperation update(String _index, String _id) {
+            return new BulkOperation(null, null, new BulkOperationDetail(_index, _id), null);
         }
 
         public static BulkOperation update(String _id) {
-            return new BulkOperation(null, null, new BulkOperationDetail(null, null, _id), null);
+            return new BulkOperation(null, null, new BulkOperationDetail(null, _id), null);
         }
 
-        public static BulkOperation delete(String _index, String _type, String _id) {
-            return new BulkOperation(null, null, null, new BulkOperationDetail(_index, _type, _id));
+        public static BulkOperation delete(String _index, String _id) {
+            return new BulkOperation(null, null, null, new BulkOperationDetail(_index, _id));
         }
 
         public static BulkOperation delete(String _id) {
-            return new BulkOperation(null, null, null, new BulkOperationDetail(null, null, _id));
+            return new BulkOperation(null, null, null, new BulkOperationDetail(null, _id));
         }
 
         private BulkOperation(BulkOperationDetail index, BulkOperationDetail create, BulkOperationDetail update, BulkOperationDetail delete) {
@@ -98,12 +98,10 @@ public class BulkItem {
     }
     public static class BulkOperationDetail {
         public final String _index;
-        public final String _type;
         public final String _id;
 
-        public BulkOperationDetail(String _index, String _type, String _id) {
+        public BulkOperationDetail(String _index, String _id) {
             this._index = _index;
-            this._type = _type;
             this._id = _id;
         }
     }

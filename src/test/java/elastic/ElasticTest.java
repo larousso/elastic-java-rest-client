@@ -41,7 +41,6 @@ import scala.concurrent.duration.FiniteDuration;
 public class ElasticTest {
 
 	private static final String INDEX = "test";
-	private static final String TYPE = "test";
 
 	private static Elastic elasticClient;
 
@@ -79,7 +78,7 @@ public class ElasticTest {
 		createIndexWithMapping();
 		assertThat(elasticClient.indexExists(INDEX).get()).isTrue();
 		JsValue index = elasticClient.getIndex(INDEX).get();
-		String type = index.asObject().field("test").asObject().field("mappings").asObject().field("test").asObject().field("properties").asObject()
+		String type = index.asObject().field("test").asObject().field("mappings").asObject().field("properties").asObject()
 				.field("name").asObject().field("type").asString();
 		assertThat(type).isIn("string", "keyword");
 	}
@@ -89,28 +88,23 @@ public class ElasticTest {
 	public void mapping_creation_should_work() throws ExecutionException, InterruptedException {
 		Boolean exists = elasticClient.indexExists(INDEX).get();
 		assertThat(exists).isFalse();
-		Boolean mappingExists = elasticClient.mappingExists(INDEX, TYPE).get();
-		assertThat(mappingExists).isFalse();
 		Future<JsValue> indexCreationResponse = elasticClient.createIndex(INDEX, Json.obj());
 		indexCreationResponse.get();
 
 		assertThat(elasticClient.indexExists(INDEX).get()).isTrue();
-		Future<JsValue> mappingCreation = elasticClient.createMapping(INDEX, TYPE,
-				Json.obj($("properties", $("name", Json.obj($("type", "string"), $("index", "not_analyzed"))))));
+		Future<JsValue> mappingCreation = elasticClient.createMapping(INDEX,
+				Json.obj($("properties", $("name", Json.obj($("type", "keyword"), $("index", false))))));
 		mappingCreation.get();
-
-        assertThat(elasticClient.mappingExists(INDEX, TYPE).get()).isTrue();
 
 		JsValue index = elasticClient.getIndex(INDEX).get();
 		String type = index
-				.field(TYPE)
-				.field("mappings")
 				.field("test")
+				.field("mappings")
 				.field("properties")
 				.field("name").field("type").asString();
-		assertThat(type).isIn("string", "keyword");
+		assertThat(type).isIn("keyword");
 
-		JsValue mapping = elasticClient.getMapping(INDEX, TYPE).get();
+		JsValue mapping = elasticClient.getMapping(INDEX).get();
 
 		assertThat(mapping.field(INDEX).field("mappings")).isEqualTo(index.field(INDEX).field("mappings"));
 	}
@@ -118,13 +112,13 @@ public class ElasticTest {
 	@Test
 	public void index_data_should_work() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
-		Future<IndexResponse> indexResult = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1"));
+		Future<IndexResponse> indexResult = elasticClient.index(INDEX, Json.obj($("name", "Jean Claude Dus")), Option.some("1"));
 		IndexResponse indexResponse = indexResult.get();
 
-		assertThat(indexResponse.created).isTrue();
+		assertThat(indexResponse.result).isEqualTo("created");
 		assertThat(indexResponse._id).isEqualTo("1");
 
-		GetResponse elt = elasticClient.get(INDEX, TYPE, "1").get();
+		GetResponse elt = elasticClient.get(INDEX, "1").get();
 		assertThat(elt.found).isTrue();
 		Option<Person> mayBePerson = elt.as(Person.read);
 		ElasticTest.Person person = mayBePerson.get();
@@ -134,15 +128,15 @@ public class ElasticTest {
 	@Test
 	public void search_data_should_work() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
-		IndexResponse indexResponse = elasticClient.index(INDEX, TYPE, Json.obj($("name", "Jean Claude Dus")), Option.some("1")).toCompletableFuture()
+		IndexResponse indexResponse = elasticClient.index(INDEX, Json.obj($("name", "Jean Claude Dus")), Option.some("1")).toCompletableFuture()
 				.get();
 
 		elasticClient.refresh().get();
 
-		assertThat(indexResponse.created).isTrue();
+		assertThat(indexResponse.result).isEqualTo("created");
 		assertThat(indexResponse._id).isEqualTo("1");
 
-		Future<SearchResponse> search = elasticClient.search(INDEX, TYPE, Json.obj($("query", $("match_all", Json.obj()))));
+		Future<SearchResponse> search = elasticClient.search(INDEX, Json.obj($("query", $("match_all", Json.obj()))));
 		SearchResponse searchResponse = search.get();
 		assertThat(searchResponse.hits.total).isEqualTo(1);
 		List<Person> people = searchResponse.hits.hitsAs(Person.read);
@@ -154,7 +148,7 @@ public class ElasticTest {
 	public void bulk_indexing_should_work() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
 		java.util.List<BulkResponse> response = Source.range(1, 500)
-				.map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i))).via(elasticClient.bulk(5, 2))
+				.map(i -> BulkItem.create(INDEX, String.valueOf(i), Json.obj().with("name", "name-" + i))).via(elasticClient.bulk(5, 2))
 				.runWith(Sink.seq(), system).toCompletableFuture().get();
 
 		assertThat(response).hasSize(100);
@@ -168,7 +162,7 @@ public class ElasticTest {
 	public void bulk_indexing_with_errors() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
 		java.util.List<BulkResponse> responses = Source.range(1, 10).concat(Source.range(1, 10))
-				.map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
+				.map(i -> BulkItem.create(INDEX, String.valueOf(i), Json.obj().with("name", "name-" + i)))
 				.via(elasticClient.bulk(20, FiniteDuration.create(1, TimeUnit.SECONDS), 2)).runWith(Sink.seq(), system)
 				.toCompletableFuture().get();
 
@@ -187,7 +181,7 @@ public class ElasticTest {
 	public void bulk_indexing_with_retry_should_work() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
 		java.util.List<Either<Elastic.BulkFailure, BulkResponse>> response = Source.range(1, 500)
-				.map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
+				.map(i -> BulkItem.create(INDEX, String.valueOf(i), Json.obj().with("name", "name-" + i)))
 				.via(elasticClient.bulkWithRetry(5, 2, 2, FiniteDuration.create(1, TimeUnit.SECONDS), Elastic.RetryMode.LineareLatency))
 				.runWith(Sink.seq(), system).toCompletableFuture().get();
 
@@ -204,7 +198,7 @@ public class ElasticTest {
 		Long start = System.currentTimeMillis();
 
 		java.util.List<Either<Elastic.BulkFailure, BulkResponse>> results = Source.range(1, 10).concat(Source.range(1, 10))
-				.map(i -> BulkItem.create(INDEX, TYPE, String.valueOf(i), Json.obj().with("name", "name-" + i)))
+				.map(i -> BulkItem.create(INDEX, String.valueOf(i), Json.obj().with("name", "name-" + i)))
 				.via(elasticClient.bulkWithRetry(5, 1, 2, FiniteDuration.create(1, TimeUnit.SECONDS), Elastic.RetryMode.ExponentialLatency,
 						pair -> pair._1.isFailure() || (pair._1.isSuccess() && pair._1.get().errors)))
 				.runWith(Sink.seq(), system).toCompletableFuture().get();
@@ -230,17 +224,15 @@ public class ElasticTest {
 	@Test
     public void get_mapping() throws ExecutionException, InterruptedException {
         createIndexWithMapping();
-        JsValue jsValue = elasticClient.getMapping(INDEX, TYPE).get();
+        JsValue jsValue = elasticClient.getMapping(INDEX).get();
         assertThat(jsValue).isEqualTo(Json.obj(
                 $("test",
                         $("mappings",
-                                $("test",
-                                        $("properties",
-                                                $("name", Json.obj(
-                                                        $("type", "keyword")
-                                                ))
-                                        )
-                                )
+								$("properties",
+										$("name", Json.obj(
+												$("type", "keyword")
+										))
+								)
                         )
                 )
         ));
@@ -261,12 +253,12 @@ public class ElasticTest {
                         )
                 )
         );
-
-        assertThat(newObj).isEqualTo(Json.obj(
+		newObj.object("test").object("settings").remove("creation_date").remove("version").remove("uuid");
+		assertThat(newObj).isEqualTo(Json.obj(
                 $("test",
                         $("settings",
                                 $("index", Json.obj(
-                                        $("number_of_shards", "5"),
+                                        $("number_of_shards", "1"),
                                         $("provided_name", "test"),
                                         $("number_of_replicas", "1")
                                 ))
@@ -304,7 +296,7 @@ public class ElasticTest {
                 $("test",
                         $("settings",
                                 $("index", Json.obj(
-                                        $("number_of_shards", "5"),
+                                        $("number_of_shards", "1"),
                                         $("provided_name", "test"),
                                         $("number_of_replicas", "3")
                                 ))
@@ -322,7 +314,7 @@ public class ElasticTest {
 		assertThat(indices).hasSize(1);
 		Map<String, String> line = indices.head()
 				.filter(t -> !t._1.equals("uuid") && !t._1.equals("health") && !t._1.equals("pri.store.size") && !t._1.equals("store.size"));
-		assertThat(line).isEqualTo(HashMap.of("docs.deleted", "0", "pri", "5", "index", "test", "status", "open", "docs.count", "0", "rep", "1"));
+		assertThat(line).isEqualTo(HashMap.of("docs.deleted", "0", "pri", "1", "index", "test", "status", "open", "docs.count", "0", "rep", "1"));
 	}
 
 	@Test
@@ -371,14 +363,14 @@ public class ElasticTest {
 	public void reindex() throws ExecutionException, InterruptedException {
 		createIndexWithMapping();
 		String index = INDEX + "-2";
-		createIndexWithMapping(index, "test");
+		createIndexWithMapping(index);
 
-		ElasticType elasticType = elasticClient.type(INDEX, TYPE);
+		ElasticType elasticType = elasticClient.type(INDEX);
 		elasticType.index(Json.obj($("name", "Ragnar")), Option.some("1")).get();
 		elasticType.index(Json.obj($("name", "Floki")), Option.some("2")).get();
 		elasticType.refresh().get();
 
-		ElasticType newType = elasticClient.type(index, TYPE);
+		ElasticType newType = elasticClient.type(index);
 		assertThat(elasticType.count().get()).isEqualTo(2);
 		assertThat(newType.count().get()).isEqualTo(0);
 
@@ -425,19 +417,17 @@ public class ElasticTest {
 	}
 
 	private void createIndexWithMapping() throws ExecutionException, InterruptedException {
-		createIndexWithMapping(INDEX, "test");
+		createIndexWithMapping(INDEX);
 	}
 
-	private void createIndexWithMapping(String index, String type) throws ExecutionException, InterruptedException {
+	private void createIndexWithMapping(String index) throws ExecutionException, InterruptedException {
 		elasticClient
 				.createIndex(index,
 						Json.obj($("mappings",
-								$(type,
-										$("properties",
-												$("name", Json.obj(
-														$("type", "keyword")
-												))
-										)
+								$("properties",
+										$("name", Json.obj(
+												$("type", "keyword")
+										))
 								)
 						))
 				)
